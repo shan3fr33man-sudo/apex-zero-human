@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "outDir": "dist",
+    "lib": ["ES2022"]
+  },
+  "include": [
+    "*.ts",
+    "web-browser/**/*.ts",
+    "email-reader/**/*.ts",
+    "phone-listener/**/*.ts",
+    "crm-connector/**/*.ts",
+    "calendar-manager/**/*.ts",
+    "ads-manager/**/*.ts",
+    "review-requester/**/*.ts",
+    "document-generator/**/*.ts",
+    "firecrawl/**/*.ts"
+  ],
+  "exclude": ["node_modules", "dist"]
+}

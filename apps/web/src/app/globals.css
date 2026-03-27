@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --apex-bg: #0A0A0A;
+  --apex-surface: #111111;
+  --apex-border: #1F1F1F;
+  --apex-text: #F5F5F5;
+  --apex-muted: #6B6B6B;
+  --apex-accent: #00FF88;
+  --apex-warning: #FFB800;
+  --apex-danger: #FF4444;
+  --apex-info: #3B82F6;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #1F1F1F #0A0A0A;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: #0A0A0A;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #1F1F1F;
+  border-radius: 3px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #2A2A2A;
+}
+
+@layer base {
+  body {
+    @apply bg-apex-bg text-apex-text font-sans antialiased;
+  }
+
+  input,
+  textarea,
+  select {
+    @apply bg-apex-surface border border-apex-border text-apex-text placeholder:text-apex-muted
+      rounded px-3 py-2 text-sm focus:outline-none focus:border-apex-accent focus:ring-1 focus:ring-apex-accent;
+  }
+
+  button {
+    @apply transition-colors duration-150;
+  }
+}

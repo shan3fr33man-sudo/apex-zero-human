@@ -1,0 +1,31 @@
+{
+  "name": "apex-zero-human",
+  "version": "1.0.0",
+  "private": true,
+  "license": "MIT",
+  "description": "APEX — Autonomous Platform for EXecution. Zero-human company builder.",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "db:generate-types": "npx supabase gen types typescript --project-id $SUPABASE_PROJECT_ID > packages/db/types.ts"
+  },
+  "devDependencies": {
+    "firecrawl-cli": "^1.12.2",
+    "turbo": "^2.0.0",
+    "typescript": "^5.4.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "packageManager": "npm@10.9.4",
+  "dependencies": {
+    "@mendable/firecrawl-js": "^4.18.0"
+  }
+}
