@@ -1,6 +1,7 @@
 /**
- * Stripe webhook handler
- * Processes subscription events and updates tenant plan.
+ * POST /api/stripe/webhook
+ * Stripe webhook handler — processes subscription lifecycle events.
+ * Updates organizations table with plan, stripe_customer_id, stripe_subscription_id.
  */
 import { NextResponse } from 'next/server';
 import { getSupabaseServiceRole } from '@/lib/supabase-server';
@@ -11,13 +12,13 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
 });
 
 const PRICE_TO_PLAN: Record<string, string> = {
-  // These will be set from Stripe dashboard
-  // price_starter_monthly: 'starter',
-  // price_starter_yearly: 'starter',
-  // price_pro_monthly: 'professional',
-  // price_pro_yearly: 'professional',
-  // price_enterprise_monthly: 'enterprise',
-  // price_enterprise_yearly: 'enterprise',
+  // Populate from env — these are set when creating products in Stripe Dashboard
+  ...(process.env.STRIPE_STARTER_MONTHLY_PRICE_ID && { [process.env.STRIPE_STARTER_MONTHLY_PRICE_ID]: 'starter' }),
+  ...(process.env.STRIPE_STARTER_ANNUAL_PRICE_ID && { [process.env.STRIPE_STARTER_ANNUAL_PRICE_ID]: 'starter' }),
+  ...(process.env.STRIPE_PRO_MONTHLY_PRICE_ID && { [process.env.STRIPE_PRO_MONTHLY_PRICE_ID]: 'professional' }),
+  ...(process.env.STRIPE_PRO_ANNUAL_PRICE_ID && { [process.env.STRIPE_PRO_ANNUAL_PRICE_ID]: 'professional' }),
+  ...(process.env.STRIPE_ENTERPRISE_MONTHLY_PRICE_ID && { [process.env.STRIPE_ENTERPRISE_MONTHLY_PRICE_ID]: 'enterprise' }),
+  ...(process.env.STRIPE_ENTERPRISE_ANNUAL_PRICE_ID && { [process.env.STRIPE_ENTERPRISE_ANNUAL_PRICE_ID]: 'enterprise' }),
 };
 
 export async function POST(request: Request) {
@@ -43,10 +44,10 @@ export async function POST(request: Request) {
       const session = event.data.object as Stripe.Checkout.Session;
       const customerId = session.customer as string;
       const subscriptionId = session.subscription as string;
-      const tenantId = session.metadata?.tenant_id;
+      const orgId = session.metadata?.org_id;
 
-      if (!tenantId) {
-        console.error('[stripe-webhook] No tenant_id in session metadata');
+      if (!orgId) {
+        console.error('[stripe-webhook] No org_id in session metadata');
         break;
       }
 
@@ -55,18 +56,13 @@ export async function POST(request: Request) {
       const priceId = subscription.items.data[0]?.price.id;
       const plan = PRICE_TO_PLAN[priceId] || 'starter';
 
-      await supabase.from('tenants').update({
+      await supabase.from('organizations').update({
         plan,
-        plan_status: subscription.status === 'trialing' ? 'trialing' : 'active',
         stripe_customer_id: customerId,
         stripe_subscription_id: subscriptionId,
-        trial_ends_at: subscription.trial_end
-          ? new Date(subscription.trial_end * 1000).toISOString()
-          : null,
-        plan_changed_at: new Date().toISOString(),
-      }).eq('id', tenantId);
+      }).eq('id', orgId);
 
-      console.log(`[stripe-webhook] Tenant ${tenantId} upgraded to ${plan}`);
+      console.log(`[stripe-webhook] Org ${orgId} upgraded to ${plan}`);
       break;
     }
 
@@ -74,12 +70,18 @@ export async function POST(request: Request) {
       const subscription = event.data.object as Stripe.Subscription;
       const priceId = subscription.items.data[0]?.price.id;
       const plan = PRICE_TO_PLAN[priceId] || 'starter';
+      const orgId = subscription.metadata?.org_id;
 
-      await supabase.from('tenants').update({
-        plan,
-        plan_status: subscription.status === 'past_due' ? 'past_due' : 'active',
-        plan_changed_at: new Date().toISOString(),
-      }).eq('stripe_subscription_id', subscription.id);
+      if (orgId) {
+        await supabase.from('organizations').update({
+          plan,
+        }).eq('id', orgId);
+      } else {
+        // Fallback: find org by subscription ID
+        await supabase.from('organizations').update({
+          plan,
+        }).eq('stripe_subscription_id', subscription.id);
+      }
 
       break;
     }
@@ -87,49 +89,80 @@ export async function POST(request: Request) {
     case 'customer.subscription.deleted': {
       const subscription = event.data.object as Stripe.Subscription;
 
-      // Downgrade to free
-      const { data: tenant } = await supabase
-        .from('tenants')
+      // Find org by subscription ID and downgrade to free
+      const { data: org } = await supabase
+        .from('organizations')
         .select('id')
         .eq('stripe_subscription_id', subscription.id)
         .single();
 
-      if (tenant) {
-        await supabase.from('tenants').update({
+      if (org) {
+        await supabase.from('organizations').update({
           plan: 'free',
-          plan_status: 'canceled',
           stripe_subscription_id: null,
-          plan_changed_at: new Date().toISOString(),
-        }).eq('id', tenant.id);
+        }).eq('id', org.id);
 
-        // Create inbox alert for all companies in this tenant
-        const { data: orgs } = await supabase.from('organizations').select('id').eq('tenant_id', tenant.id);
-        if (orgs) {
-          for (const org of orgs) {
-            const { data: companies } = await supabase.from('companies').select('id').eq('org_id', org.id);
-            if (companies) {
-              for (const company of companies) {
-                await supabase.from('inbox_items').insert({
-                  company_id: company.id,
-                  item_type: 'SYSTEM_ALERT',
-                  title: 'Subscription canceled — downgraded to Free plan',
-                  description: 'Your subscription has been canceled. Agents exceeding the free plan limits have been paused.',
-                  payload: { type: 'PLAN_DOWNGRADED' },
-                });
+        // Create inbox alert for all companies in this org
+        const { data: companies } = await supabase
+          .from('companies')
+          .select('id')
+          .eq('org_id', org.id);
 
-                // Pause agents beyond free limit (keep first 3)
-                const { data: agents } = await supabase
-                  .from('agents')
-                  .select('id')
-                  .eq('company_id', company.id)
-                  .order('created_at', { ascending: true });
+        if (companies) {
+          for (const company of companies) {
+            await supabase.from('inbox_items').insert({
+              company_id: company.id,
+              item_type: 'SYSTEM_ALERT',
+              title: 'Subscription canceled — downgraded to Free plan',
+              description: 'Your subscription has been canceled. Agents exceeding the free plan limits have been paused.',
+              payload: { type: 'PLAN_DOWNGRADED' },
+            });
 
-                if (agents && agents.length > 3) {
-                  const toPause = agents.slice(3).map(a => a.id);
-                  await supabase.from('agents').update({ status: 'paused' }).in('id', toPause);
-                }
-              }
+            // Pause agents beyond free limit (keep first 3)
+            const { data: agents } = await supabase
+              .from('agents')
+              .select('id')
+              .eq('company_id', company.id)
+              .order('created_at', { ascending: true });
+
+            if (agents && agents.length > 3) {
+              const toPause = agents.slice(3).map(a => a.id);
+              await supabase.from('agents').update({ status: 'paused' }).in('id', toPause);
             }
+          }
+        }
+
+        console.log(`[stripe-webhook] Org ${org.id} downgraded to free`);
+      }
+      break;
+    }
+
+    case 'invoice.payment_failed': {
+      const invoice = event.data.object as Stripe.Invoice;
+      const subscriptionId = invoice.subscription as string;
+
+      // Find org and alert them
+      const { data: org } = await supabase
+        .from('organizations')
+        .select('id')
+        .eq('stripe_subscription_id', subscriptionId)
+        .single();
+
+      if (org) {
+        const { data: companies } = await supabase
+          .from('companies')
+          .select('id')
+          .eq('org_id', org.id);
+
+        if (companies) {
+          for (const company of companies) {
+            await supabase.from('inbox_items').insert({
+              company_id: company.id,
+              item_type: 'SYSTEM_ALERT',
+              title: 'Payment failed — please update your billing info',
+              description: 'Your subscription payment failed. Please update your payment method to avoid service interruption.',
+              payload: { type: 'PAYMENT_FAILED', invoice_id: invoice.id },
+            });
           }
         }
       }

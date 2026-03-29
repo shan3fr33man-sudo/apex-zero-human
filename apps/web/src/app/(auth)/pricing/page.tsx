@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 const plans = [
   {
@@ -74,6 +75,43 @@ const plans = [
 
 export default function PricingPage() {
   const [annual, setAnnual] = useState(false);
+  const [loading, setLoading] = useState<string | null>(null);
+  const router = useRouter();
+
+  async function handleSubscribe(slug: string) {
+    if (slug === 'free') {
+      router.push('/signup');
+      return;
+    }
+    if (slug === 'enterprise') {
+      window.location.href = 'mailto:shane@apex-code.tech?subject=APEX Enterprise Inquiry';
+      return;
+    }
+
+    setLoading(slug);
+    try {
+      const res = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan: slug, annual }),
+      });
+      const data = await res.json();
+
+      if (data.url) {
+        window.location.href = data.url;
+      } else if (res.status === 503) {
+        // Stripe not configured yet — redirect to signup
+        router.push('/signup');
+      } else {
+        console.error('Checkout error:', data.error);
+        router.push('/signup');
+      }
+    } catch {
+      router.push('/signup');
+    } finally {
+      setLoading(null);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] py-16 px-4">
@@ -148,7 +186,9 @@ export default function PricingPage() {
               </ul>
 
               <button
-                className={`w-full py-2.5 px-4 rounded text-sm font-sans font-medium transition-colors ${
+                onClick={() => handleSubscribe(plan.slug)}
+                disabled={loading === plan.slug}
+                className={`w-full py-2.5 px-4 rounded text-sm font-sans font-medium transition-colors disabled:opacity-50 ${
                   plan.highlight
                     ? 'bg-[#00FF88] text-[#0A0A0A] hover:bg-[#00FF88]/90'
                     : plan.slug === 'free'
@@ -156,7 +196,7 @@ export default function PricingPage() {
                     : 'border border-[#00FF88]/50 text-[#00FF88] hover:bg-[#00FF88]/10'
                 }`}
               >
-                {plan.cta}
+                {loading === plan.slug ? 'Loading...' : plan.cta}
               </button>
             </div>
           ))}
