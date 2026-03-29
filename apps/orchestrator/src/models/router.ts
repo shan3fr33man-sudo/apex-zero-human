@@ -13,11 +13,14 @@
  */
 import Anthropic from '@anthropic-ai/sdk';
 import { TokenGateway, type TokenUsage } from '../core/token-gateway.js';
+import { getDecryptedKeyForCompany, BYOKRequiredError } from '../lib/key-vault.js';
+import { getSupabaseAdmin } from '../lib/supabase.js';
 import { createLogger } from '../lib/logger.js';
 
 const log = createLogger('ModelRouter');
 
 export type ModelTier = 'STRATEGIC' | 'TECHNICAL' | 'ROUTINE';
+export { BYOKRequiredError };
 
 interface ModelConfig {
   primary: string;
@@ -72,16 +75,66 @@ export interface LlmResponse {
 }
 
 export class ModelRouter {
-  private client: Anthropic;
+  private defaultClient: Anthropic | null = null;
+  private tenantClients: Map<string, { client: Anthropic; expiresAt: number }> = new Map();
   private tokenGateway: TokenGateway;
 
   constructor(tokenGateway: TokenGateway) {
+    // Default client is optional — BYOK tenants use their own keys
     const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      throw new Error('[ModelRouter] Missing ANTHROPIC_API_KEY');
+    if (apiKey) {
+      this.defaultClient = new Anthropic({ apiKey });
     }
-    this.client = new Anthropic({ apiKey });
     this.tokenGateway = tokenGateway;
+  }
+
+  /**
+   * Get or create an Anthropic client for a company (BYOK).
+   * Caches clients for 5 minutes to avoid repeated decryption.
+   */
+  private async getClientForCompany(companyId: string): Promise<Anthropic> {
+    const cached = this.tenantClients.get(companyId);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.client;
+    }
+
+    try {
+      const apiKey = await getDecryptedKeyForCompany(companyId);
+      const client = new Anthropic({ apiKey });
+      this.tenantClients.set(companyId, {
+        client,
+        expiresAt: Date.now() + 5 * 60 * 1000, // 5 min cache
+      });
+      return client;
+    } catch (err) {
+      if (err instanceof BYOKRequiredError) {
+        // Create inbox alert for missing/invalid key
+        await this.handleBYOKError(companyId, err.message);
+        throw err;
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * Handle BYOK errors — alert operator and pause agents.
+   */
+  private async handleBYOKError(companyId: string, message: string): Promise<void> {
+    const supabase = getSupabaseAdmin();
+    await supabase.from('inbox_items').insert({
+      company_id: companyId,
+      item_type: 'SYSTEM_ALERT',
+      title: 'API Key Required',
+      description: message,
+      payload: { type: 'BYOK_INVALID', timestamp: new Date().toISOString() },
+    });
+    // Pause all active agents for this company
+    await supabase
+      .from('agents')
+      .update({ status: 'paused' })
+      .eq('company_id', companyId)
+      .eq('status', 'working');
+    log.warn('BYOK error — agents paused', { companyId, message });
   }
 
   /**
@@ -126,13 +179,16 @@ export class ModelRouter {
       throw new Error(`Budget exceeded: ${budgetCheck.reason}`);
     }
 
+    // BYOK: Get the tenant's Anthropic client
+    const client = await this.getClientForCompany(request.companyId);
+
     // Try each model in the fallback chain
     let lastError: Error | null = null;
 
     for (const model of models) {
       for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
         try {
-          const response = await this.callClaude(model, request);
+          const response = await this.callClaude(model, request, client);
 
           // Record actual token usage
           const usage: TokenUsage = {
@@ -218,8 +274,8 @@ export class ModelRouter {
   /**
    * Make the actual Claude API call.
    */
-  private async callClaude(model: string, request: LlmRequest): Promise<LlmResponse> {
-    const response = await this.client.messages.create({
+  private async callClaude(model: string, request: LlmRequest, client: Anthropic): Promise<LlmResponse> {
+    const response = await client.messages.create({
       model,
       max_tokens: request.maxTokens ?? 4096,
       temperature: request.temperature ?? 0.7,

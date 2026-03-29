@@ -37,3 +37,8 @@ coverage/
 
 # PM2
 .pm2/
+
+# VPS artifacts
+nohup.out
+*.save
+*.tar.gz

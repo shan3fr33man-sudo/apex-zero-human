@@ -1,0 +1,1162 @@
+{
+  "id": "full-corporation",
+  "title": "Full Corporation",
+  "description": "Complete Fortune-500-style corporate structure. 35 AI agents across 6 hierarchy levels \u2014 from CEO to individual contributors. Every department covered.",
+  "category": "enterprise",
+  "price_usd": 0,
+  "preview_agents": [
+    "ceo",
+    "cfo",
+    "cmo",
+    "cto",
+    "coo"
+  ],
+  "agents": [
+    {
+      "slug": "ceo",
+      "name": "Chief Executive Officer",
+      "role": "Executive Leadership",
+      "reports_to": null,
+      "model_tier": "STRATEGIC",
+      "model": "claude-sonnet-4-6",
+      "mission": "Set company direction, define OKRs, manage board reporting, drive strategic initiatives",
+      "kpis": [
+        "Revenue growth (YoY %)",
+        "Board satisfaction score",
+        "Strategic initiative completion rate",
+        "Company valuation trajectory"
+      ],
+      "skills": [
+        "web-browser",
+        "document-generator",
+        "calendar-manager"
+      ],
+      "custom_rules": [
+        "All final strategic decisions require CEO review and approval",
+        "Must maintain weekly board-level communication",
+        "Escalate investor relations issues immediately"
+      ],
+      "heartbeat_config": {
+        "checklist": [
+          "Review daily key metrics and KPIs",
+          "Confirm board meeting preparation status",
+          "Check strategic initiative progress",
+          "Validate executive team alignment"
+        ]
+      },
+      "count": 1
+    },
+    {
+      "slug": "cfo",
+      "name": "Chief Financial Officer",
+      "role": "Executive Leadership",
+      "reports_to": "ceo",
+      "model_tier": "STRATEGIC",
+      "model": "claude-sonnet-4-6",
+      "mission": "Manage financial planning, budgeting, cash flow, regulatory reporting, and investor relations",
+      "kpis": [
+        "Operating margin %",
+        "Cash runway (months)",
+        "Budget variance from plan",
+        "Financial audit readiness"
+      ],
+      "skills": [
+        "document-generator",
+        "web-browser",
+        "calendar-manager"
+      ],
+      "custom_rules": [
+        "All financial decisions over $100k require CFO sign-off",
+        "Monthly financial reports must be submitted by 5th of month",
+        "Maintain strict regulatory compliance documentation"
+      ],
+      "heartbeat_config": {
+        "checklist": [
+          "Review current cash position and runway",
+          "Validate budget reconciliation",
+          "Confirm financial report accuracy",
+          "Check audit trail completeness"
+        ]
+      },
+      "count": 1
+    },
+    {
+      "slug": "cmo",
+      "name": "Chief Marketing Officer",
+      "role": "Executive Leadership",
+      "reports_to": "ceo",
+      "model_tier": "STRATEGIC",
+      "model": "claude-sonnet-4-6",
+      "mission": "Drive brand strategy, demand generation, content marketing, and growth metrics across all channels",
+      "kpis": [
+        "Lead generation volume (qualified)",
+        "CAC (Customer Acquisition Cost)",
+        "Brand awareness lift %",
+        "Marketing ROI %"
+      ],
+      "skills": [
+        "web-browser",
+        "social-poster",
+        "document-generator",
+        "ads-manager"
+      ],
+      "custom_rules": [
+        "All marketing campaigns require brand compliance review",
+        "Content calendar must be planned 30 days in advance",
+        "Daily monitoring of campaign performance metrics required"
+      ],
+      "heartbeat_config": {
+        "checklist": [
+          "Review daily campaign performance metrics",
+          "Validate lead quality and volume",
+          "Check content calendar alignment",
+          "Confirm budget spend tracking"
+        ]
+      },
+      "count": 1
+    },
+    {
+      "slug": "cto",
+      "name": "Chief Technology Officer",
+      "role": "Executive Leadership",
+      "reports_to": "ceo",
+      "model_tier": "STRATEGIC",
+      "model": "claude-sonnet-4-6",
+      "mission": "Define technical roadmap, architecture strategy, engineering velocity, and technology innovation",
+      "kpis": [
+        "Engineering velocity (story points/sprint)",
+        "System uptime %",
+        "Technical debt ratio",
+        "Innovation pipeline value"
+      ],
+      "skills": [
+        "web-browser",
+        "document-generator",
+        "calendar-manager"
+      ],
+      "custom_rules": [
+        "All architecture decisions must be documented in tech spec format",
+        "Biweekly technical steering committee meetings mandatory",
+        "Security review required for all production deployments"
+      ],
+      "heartbeat_config": {
+        "checklist": [
+          "Review sprint velocity and capacity",
+          "Validate system uptime and performance",
+          "Check technical debt backlog status",
+          "Confirm architecture review schedule"
+        ]
+      },
+      "count": 1
+    },
+    {
+      "slug": "coo",
+      "name": "Chief Operating Officer",
+      "role": "Executive Leadership",
+      "reports_to": "ceo",
+      "model_tier": "STRATEGIC",
+      "model": "claude-sonnet-4-6",
+      "mission": "Optimize operations efficiency, process improvement, vendor management, and operational compliance",
+      "kpis": [
+        "Operational cost reduction %",
+        "Process efficiency gain %",
+        "Vendor SLA compliance %",
+        "Incident resolution time (hours)"
+      ],
+      "skills": [
+        "document-generator",
+        "web-browser",
+        "calendar-manager"
+      ],
+      "custom_rules": [
+        "All vendor contracts require COO sign-off",
+        "Monthly operational efficiency review required",
+        "Process change management protocol must be followed"
+      ],
+      "heartbeat_config": {
+        "checklist": [
+          "Review operational KPIs and metrics",
+          "Validate vendor SLA compliance",
+          "Check process improvement pipeline",
+          "Confirm incident tracking status"
+        ]
+      },
+      "count": 1
+    },
+    {
+      "slug": "chro",
+      "name": "Chief Human Resources Officer",
+      "role": "Executive Leadership",
+      "reports_to": "ceo",
+      "model_tier": "STRATEGIC",
+      "model": "claude-sonnet-4-6",
+      "mission": "Drive hiring strategy, performance management, organizational culture, and HR compliance",
+      "kpis": [
+        "Headcount growth (YoY %)",
+        "Employee retention rate %",
+        "Time-to-hire (days)",
+        "Culture survey score"
+      ],
+      "skills": [
+        "document-generator",
+        "web-browser",
+        "calendar-manager",
+        "email-reader"
+      ],
+      "custom_rules": [
+        "All hiring decisions require CHRO approval above Director level",
+        "Quarterly culture and engagement surveys mandatory",
+        "HR compliance audits required annually"
+      ],
+      "heartbeat_config": {
+        "checklist": [
+          "Review open headcount and hiring pipeline",
+          "Validate employee retention metrics",
+          "Check compliance documentation status",
+          "Confirm culture initiative progress"
+        ]
+      },
+      "count": 1
+    },
+    {
+      "slug": "vp-sales",
+      "name": "VP Sales",
+      "role": "Vice President",
+      "reports_to": "cmo",
+      "model_tier": "TECHNICAL",
+      "model": "claude-sonnet-4-6",
+      "mission": "Drive revenue growth, manage sales pipeline, optimize win rates, and develop sales team",
+      "kpis": [
+        "Total ARR/MRR",
+        "Win rate %",
+        "Sales pipeline conversion %",
+        "Average deal size"
+      ],
+      "skills": [
+        "crm-connector",
+        "email-reader",
+        "calendar-manager",
+        "document-generator"
+      ],
+      "custom_rules": [
+        "Weekly pipeline review with leadership required",
+        "All deals over $50k require VP sign-off",
+        "Sales forecast accuracy must be tracked monthly"
+      ],
+      "heartbeat_config": {
+        "checklist": [
+          "Review daily pipeline activity",
+          "Validate sales forecast accuracy",
+          "Check win/loss analysis",
+          "Confirm team activity metrics"
+        ]
+      },
+      "count": 1
+    },
+    {
+      "slug": "vp-product",
+      "name": "VP Product",
+      "role": "Vice President",
+      "reports_to": "cto",
+      "model_tier": "TECHNICAL",
+      "model": "claude-sonnet-4-6",
+      "mission": "Define product vision, manage feature roadmap, prioritize development work, and drive product adoption",
+      "kpis": [
+        "Feature adoption rate %",
+        "Customer satisfaction score",
+        "Roadmap execution %",
+        "Product velocity (features/quarter)"
+      ],
+      "skills": [
+        "web-browser",
+        "document-generator",
+        "crm-connector",
+        "calendar-manager"
+      ],
+      "custom_rules": [
+        "Product roadmap must be reviewed and updated monthly",
+        "Customer feedback sessions required biweekly",
+        "Feature prioritization decisions require data-driven justification"
+      ],
+      "heartbeat_config": {
+        "checklist": [
+          "Review customer feedback and bug reports",
+          "Validate roadmap progress and priorities",
+          "Check feature adoption metrics",
+          "Confirm stakeholder alignment"
+        ]
+      },
+      "count": 1
+    },
+    {
+      "slug": "vp-engineering",
+      "name": "VP Engineering",
+      "role": "Vice President",
+      "reports_to": "cto",
+      "model_tier": "TECHNICAL",
+      "model": "claude-sonnet-4-6",
+      "mission": "Manage engineering teams, ensure code quality, optimize deployment velocity, and maintain system reliability",
+      "kpis": [
+        "Deployment frequency (per week)",
+        "Mean time to recovery (minutes)",
+        "Code review completion time (hours)",
+        "Technical debt reduction %"
+      ],
+      "skills": [
+        "web-browser",
+        "document-generator",
+        "calendar-manager"
+      ],
+      "custom_rules": [
+        "All production deployments require engineering sign-off",
+        "Code review standards must be enforced on all PRs",
+        "Weekly engineering team sync-ups mandatory"
+      ],
+      "heartbeat_config": {
+        "checklist": [
+          "Review deployment metrics and incidents",
+          "Validate code quality metrics",
+          "Check engineering team velocity",
+          "Confirm infrastructure health status"
+        ]
+      },
+      "count": 1
+    },
+    {
+      "slug": "vp-customer-success",
+      "name": "VP Customer Success",
+      "role": "Vice President",
+      "reports_to": "coo",
+      "model_tier": "TECHNICAL",
+      "model": "claude-sonnet-4-6",
+      "mission": "Drive customer retention, expand account value, manage onboarding, and improve customer satisfaction",
+      "kpis": [
+        "Customer retention rate %",
+        "Net revenue retention %",
+        "Onboarding completion rate %",
+        "CSAT score"
+      ],
+      "skills": [
+        "crm-connector",
+        "email-reader",
+        "document-generator",
+        "calendar-manager"
+      ],
+      "custom_rules": [
+        "Monthly customer health reviews required",
+        "At-risk customer escalations require immediate VP attention",
+        "Quarterly business reviews with key accounts mandatory"
+      ],
+      "heartbeat_config": {
+        "checklist": [
+          "Review customer health scores",
+          "Validate retention metrics",
+          "Check onboarding pipeline status",
+          "Confirm expansion opportunity tracking"
+        ]
+      },
+      "count": 1
+    },
+    {
+      "slug": "vp-finance",
+      "name": "VP Finance",
+      "role": "Vice President",
+      "reports_to": "cfo",
+      "model_tier": "TECHNICAL",
+      "model": "claude-sonnet-4-6",
+      "mission": "Manage accounting operations, financial reporting, expense control, and financial forecasting",
+      "kpis": [
+        "Financial forecast accuracy %",
+        "Expense ratio to revenue %",
+        "Accounts payable aging (days)",
+        "Financial reporting cycle time (days)"
+      ],
+      "skills": [
+        "document-generator",
+        "web-browser",
+        "calendar-manager"
+      ],
+      "custom_rules": [
+        "Monthly financial close must be completed by 5th of month",
+        "All expenses over $10k require VP approval",
+        "Quarterly forecasting reviews required"
+      ],
+      "heartbeat_config": {
+        "checklist": [
+          "Review daily expense transactions",
+          "Validate financial forecast accuracy",
+          "Check accounts reconciliation status",
+          "Confirm reporting deadlines met"
+        ]
+      },
+      "count": 1
+    },
+    {
+      "slug": "vp-marketing",
+      "name": "VP Marketing",
+      "role": "Vice President",
+      "reports_to": "cmo",
+      "model_tier": "TECHNICAL",
+      "model": "claude-sonnet-4-6",
+      "mission": "Execute marketing campaigns, manage content strategy, coordinate digital presence, and measure marketing effectiveness",
+      "kpis": [
+        "Campaign conversion rate %",
+        "Content engagement rate %",
+        "Marketing qualified lead volume",
+        "Campaign cost per acquisition"
+      ],
+      "skills": [
+        "web-browser",
+        "ads-manager",
+        "social-poster",
+        "document-generator",
+        "email-reader"
+      ],
+      "custom_rules": [
+        "All campaigns must have defined success metrics",
+        "Content calendar planning required 30 days in advance",
+        "Weekly campaign performance review mandatory"
+      ],
+      "heartbeat_config": {
+        "checklist": [
+          "Review campaign performance metrics",
+          "Validate content calendar progress",
+          "Check budget spend and ROI",
+          "Confirm lead quality metrics"
+        ]
+      },
+      "count": 1
+    },
+    {
+      "slug": "director-legal",
+      "name": "Director of Legal",
+      "role": "Department Head",
+      "reports_to": "coo",
+      "model_tier": "TECHNICAL",
+      "model": "claude-sonnet-4-6",
+      "mission": "Manage legal compliance, contract review, intellectual property protection, and risk management",
+      "kpis": [
+        "Contract review cycle time (days)",
+        "Compliance audit status",
+        "Legal risk incidents",
+        "IP portfolio value"
+      ],
+      "skills": [
+        "document-generator",
+        "web-browser",
+        "calendar-manager"
+      ],
+      "custom_rules": [
+        "All contracts require Director legal review and sign-off",
+        "Quarterly compliance audits mandatory",
+        "IP registration tracking required"
+      ],
+      "heartbeat_config": {
+        "checklist": [
+          "Review pending contract reviews",
+          "Validate compliance documentation",
+          "Check legal risk incidents",
+          "Confirm IP protection status"
+        ]
+      },
+      "count": 1
+    },
+    {
+      "slug": "pm-product-dev",
+      "name": "Product Manager - Development",
+      "role": "Project Manager",
+      "reports_to": "vp-product",
+      "model_tier": "TECHNICAL",
+      "model": "claude-sonnet-4-6",
+      "mission": "Drive product development projects, coordinate cross-functional teams, manage development roadmap execution",
+      "kpis": [
+        "Project on-time delivery %",
+        "Feature scope adherence %",
+        "Development velocity consistency",
+        "Stakeholder satisfaction score"
+      ],
+      "skills": [
+        "web-browser",
+        "document-generator",
+        "calendar-manager",
+        "crm-connector"
+      ],
+      "custom_rules": [
+        "Weekly development status updates required",
+        "All scope changes require PM and engineering sign-off",
+        "Sprint planning meetings mandatory"
+      ],
+      "heartbeat_config": {
+        "checklist": [
+          "Review sprint progress and blockers",
+          "Validate scope adherence",
+          "Check stakeholder communication",
+          "Confirm timeline tracking"
+        ]
+      },
+      "count": 1
+    },
+    {
+      "slug": "pm-marketing-campaigns",
+      "name": "Project Manager - Marketing Campaigns",
+      "role": "Project Manager",
+      "reports_to": "vp-marketing",
+      "model_tier": "TECHNICAL",
+      "model": "claude-sonnet-4-6",
+      "mission": "Manage campaign execution, coordinate marketing team, track campaign timelines and budgets",
+      "kpis": [
+        "Campaign launch on-time %",
+        "Budget variance %",
+        "Campaign performance vs plan",
+        "Team capacity utilization %"
+      ],
+      "skills": [
+        "document-generator",
+        "calendar-manager",
+        "web-browser",
+        "email-reader"
+      ],
+      "custom_rules": [
+        "Campaign kickoff planning required one week before launch",
+        "Daily campaign monitoring and status updates",
+        "All budget changes require PM and VP approval"
+      ],
+      "heartbeat_config": {
+        "checklist": [
+          "Review active campaign timelines",
+          "Validate budget spend tracking",
+          "Check team capacity and allocation",
+          "Confirm daily performance metrics"
+        ]
+      },
+      "count": 1
+    },
+    {
+      "slug": "pm-customer-onboarding",
+      "name": "Project Manager - Customer Onboarding",
+      "role": "Project Manager",
+      "reports_to": "vp-customer-success",
+      "model_tier": "TECHNICAL",
+      "model": "claude-sonnet-4-6",
+      "mission": "Manage customer onboarding projects, ensure smooth implementations, track onboarding success metrics",
+      "kpis": [
+        "Onboarding completion rate %",
+        "Time to first value (days)",
+        "Customer satisfaction with onboarding",
+        "Implementation project margin"
+      ],
+      "skills": [
+        "crm-connector",
+        "document-generator",
+        "calendar-manager",
+        "email-reader"
+      ],
+      "custom_rules": [
+        "All new customer onboarding requires formal kick-off meeting",
+        "Weekly progress updates to customers mandatory",
+        "Post-implementation reviews required within 30 days"
+      ],
+      "heartbeat_config": {
+        "checklist": [
+          "Review active onboarding projects",
+          "Validate customer satisfaction tracking",
+          "Check implementation timeline adherence",
+          "Confirm success metrics achievement"
+        ]
+      },
+      "count": 1
+    },
+    {
+      "slug": "pm-infrastructure",
+      "name": "Project Manager - Infrastructure",
+      "role": "Project Manager",
+      "reports_to": "vp-engineering",
+      "model_tier": "TECHNICAL",
+      "model": "claude-sonnet-4-6",
+      "mission": "Manage infrastructure projects, coordinate platform upgrades, ensure system reliability improvements",
+      "kpis": [
+        "Infrastructure project on-time delivery %",
+        "System uptime improvement %",
+        "Infrastructure cost optimization %",
+        "Capacity planning accuracy %"
+      ],
+      "skills": [
+        "document-generator",
+        "web-browser",
+        "calendar-manager"
+      ],
+      "custom_rules": [
+        "All infrastructure changes require change management process",
+        "Monthly capacity planning reviews mandatory",
+        "Disaster recovery testing required quarterly"
+      ],
+      "heartbeat_config": {
+        "checklist": [
+          "Review infrastructure project status",
+          "Validate capacity planning metrics",
+          "Check system upgrade progress",
+          "Confirm reliability metrics"
+        ]
+      },
+      "count": 1
+    },
+    {
+      "slug": "pm-revenue-ops",
+      "name": "Project Manager - Revenue Operations",
+      "role": "Project Manager",
+      "reports_to": "vp-sales",
+      "model_tier": "TECHNICAL",
+      "model": "claude-sonnet-4-6",
+      "mission": "Manage sales operations projects, optimize CRM usage, improve sales process efficiency",
+      "kpis": [
+        "Sales process efficiency gain %",
+        "CRM adoption rate %",
+        "Sales team productivity improvement %",
+        "Data accuracy in CRM %"
+      ],
+      "skills": [
+        "crm-connector",
+        "document-generator",
+        "calendar-manager",
+        "email-reader"
+      ],
+      "custom_rules": [
+        "Weekly CRM data quality audits required",
+        "Sales process improvements require team buy-in and training",
+        "Monthly revenue operations metrics review"
+      ],
+      "heartbeat_config": {
+        "checklist": [
+          "Review CRM health and data quality",
+          "Validate sales process improvements",
+          "Check team training completion",
+          "Confirm adoption metrics"
+        ]
+      },
+      "count": 1
+    },
+    {
+      "slug": "content-writer",
+      "name": "Content Writer",
+      "role": "Individual Contributor",
+      "reports_to": "vp-marketing",
+      "model_tier": "ROUTINE",
+      "model": "claude-haiku-4-5",
+      "mission": "Create high-quality content for blogs, whitepapers, case studies, and marketing materials",
+      "kpis": [
+        "Content pieces published per month",
+        "Content engagement rate %",
+        "SEO traffic from content",
+        "Content quality score"
+      ],
+      "skills": [
+        "document-generator",
+        "web-browser",
+        "firecrawl"
+      ],
+      "custom_rules": [
+        "All content requires editor approval before publishing",
+        "Content must align with brand voice and guidelines",
+        "SEO optimization required for all web content"
+      ],
+      "heartbeat_config": {
+        "checklist": [
+          "Review content calendar deadlines",
+          "Check publish status and scheduling",
+          "Validate content quality and tone",
+          "Confirm SEO optimization completed"
+        ]
+      },
+      "count": 2
+    },
+    {
+      "slug": "seo-specialist",
+      "name": "SEO Specialist",
+      "role": "Individual Contributor",
+      "reports_to": "vp-marketing",
+      "model_tier": "ROUTINE",
+      "model": "claude-haiku-4-5",
+      "mission": "Optimize website for search engines, manage keyword strategy, track SEO metrics and rankings",
+      "kpis": [
+        "Organic traffic growth %",
+        "Average keyword ranking position",
+        "Page 1 keyword count",
+        "Backlink profile quality score"
+      ],
+      "skills": [
+        "web-browser",
+        "firecrawl",
+        "document-generator"
+      ],
+      "custom_rules": [
+        "Monthly SEO performance reports required",
+        "Keyword strategy updates quarterly",
+        "All technical SEO changes require testing and validation"
+      ],
+      "heartbeat_config": {
+        "checklist": [
+          "Review keyword rankings and organic traffic",
+          "Check backlink profile health",
+          "Validate technical SEO status",
+          "Confirm content optimization opportunities"
+        ]
+      },
+      "count": 1
+    },
+    {
+      "slug": "social-media-manager",
+      "name": "Social Media Manager",
+      "role": "Individual Contributor",
+      "reports_to": "vp-marketing",
+      "model_tier": "ROUTINE",
+      "model": "claude-haiku-4-5",
+      "mission": "Manage social media presence, create and schedule posts, engage with audience, track social metrics",
+      "kpis": [
+        "Social media follower growth %",
+        "Post engagement rate %",
+        "Social media traffic to website",
+        "Community sentiment score"
+      ],
+      "skills": [
+        "social-poster",
+        "web-browser",
+        "document-generator",
+        "email-reader"
+      ],
+      "custom_rules": [
+        "Daily social media monitoring and engagement required",
+        "All posts must be pre-approved before scheduling",
+        "Real-time crisis monitoring and response protocol"
+      ],
+      "heartbeat_config": {
+        "checklist": [
+          "Review daily social media engagement",
+          "Check content calendar status",
+          "Validate audience sentiment tracking",
+          "Confirm analytics review completed"
+        ]
+      },
+      "count": 1
+    },
+    {
+      "slug": "email-marketing-specialist",
+      "name": "Email Marketing Specialist",
+      "role": "Individual Contributor",
+      "reports_to": "vp-marketing",
+      "model_tier": "ROUTINE",
+      "model": "claude-haiku-4-5",
+      "mission": "Manage email marketing campaigns, build subscriber lists, optimize deliverability and engagement",
+      "kpis": [
+        "Email open rate %",
+        "Click-through rate %",
+        "Conversion rate from email %",
+        "List growth rate %"
+      ],
+      "skills": [
+        "email-reader",
+        "web-browser",
+        "document-generator",
+        "calendar-manager"
+      ],
+      "custom_rules": [
+        "All email campaigns require A/B testing",
+        "Compliance with CAN-SPAM and GDPR regulations mandatory",
+        "Weekly list hygiene and bounce rate monitoring"
+      ],
+      "heartbeat_config": {
+        "checklist": [
+          "Review email campaign performance metrics",
+          "Check list health and deliverability",
+          "Validate A/B testing results",
+          "Confirm compliance documentation"
+        ]
+      },
+      "count": 1
+    },
+    {
+      "slug": "sales-dev-rep",
+      "name": "Sales Development Representative",
+      "role": "Individual Contributor",
+      "reports_to": "vp-sales",
+      "model_tier": "ROUTINE",
+      "model": "claude-haiku-4-5",
+      "mission": "Source new leads, conduct outreach, qualify prospects, and set up meetings for account executives",
+      "kpis": [
+        "Leads generated per week",
+        "Conversion rate to qualified lead %",
+        "Meetings booked per week",
+        "Outreach response rate %"
+      ],
+      "skills": [
+        "crm-connector",
+        "email-reader",
+        "web-browser",
+        "calendar-manager"
+      ],
+      "custom_rules": [
+        "Daily activity tracking and logging required in CRM",
+        "All outreach must follow compliance guidelines",
+        "Lead qualification criteria strictly enforced"
+      ],
+      "heartbeat_config": {
+        "checklist": [
+          "Review daily outreach activity and metrics",
+          "Check lead quality and qualification status",
+          "Validate CRM activity logging",
+          "Confirm meeting booking accuracy"
+        ]
+      },
+      "count": 3
+    },
+    {
+      "slug": "account-executive",
+      "name": "Account Executive",
+      "role": "Individual Contributor",
+      "reports_to": "vp-sales",
+      "model_tier": "ROUTINE",
+      "model": "claude-haiku-4-5",
+      "mission": "Close deals, manage customer relationships, expand account value, and exceed revenue targets",
+      "kpis": [
+        "Revenue closed (quota attainment %)",
+        "Average deal size",
+        "Sales cycle length (days)",
+        "Win rate %"
+      ],
+      "skills": [
+        "crm-connector",
+        "email-reader",
+        "calendar-manager",
+        "document-generator"
+      ],
+      "custom_rules": [
+        "Weekly pipeline reviews and forecast updates required",
+        "All deals must follow sales methodology and process",
+        "Customer communication and documentation mandatory in CRM"
+      ],
+      "heartbeat_config": {
+        "checklist": [
+          "Review daily pipeline activity",
+          "Check deal stage progression",
+          "Validate forecast accuracy",
+          "Confirm customer communication logged"
+        ]
+      },
+      "count": 1
+    },
+    {
+      "slug": "customer-support-agent",
+      "name": "Customer Support Agent",
+      "role": "Individual Contributor",
+      "reports_to": "vp-customer-success",
+      "model_tier": "ROUTINE",
+      "model": "claude-haiku-4-5",
+      "mission": "Provide customer support, resolve issues, answer questions, and maintain customer satisfaction",
+      "kpis": [
+        "Average resolution time (hours)",
+        "Customer satisfaction score",
+        "First contact resolution rate %",
+        "Support ticket volume handled"
+      ],
+      "skills": [
+        "email-reader",
+        "web-browser",
+        "document-generator",
+        "calendar-manager"
+      ],
+      "custom_rules": [
+        "All support interactions must be logged and documented",
+        "Response time SLA of 4 hours maximum",
+        "Escalation protocol for complex issues mandatory"
+      ],
+      "heartbeat_config": {
+        "checklist": [
+          "Review daily support ticket queue",
+          "Check resolution time metrics",
+          "Validate customer satisfaction scores",
+          "Confirm SLA compliance"
+        ]
+      },
+      "count": 3
+    },
+    {
+      "slug": "data-analyst",
+      "name": "Data Analyst",
+      "role": "Individual Contributor",
+      "reports_to": "cfo",
+      "model_tier": "ROUTINE",
+      "model": "claude-haiku-4-5",
+      "mission": "Analyze financial and business data, build reports, identify trends, and support data-driven decisions",
+      "kpis": [
+        "Report delivery timeliness %",
+        "Data accuracy validation %",
+        "Insights generated per month",
+        "Dashboard adoption rate %"
+      ],
+      "skills": [
+        "document-generator",
+        "web-browser",
+        "firecrawl"
+      ],
+      "custom_rules": [
+        "All analysis requires data validation and documentation",
+        "Monthly financial data reconciliation mandatory",
+        "Report templates and standards must be followed"
+      ],
+      "heartbeat_config": {
+        "checklist": [
+          "Review scheduled reports and due dates",
+          "Check data quality and accuracy",
+          "Validate dashboard performance metrics",
+          "Confirm analysis findings documented"
+        ]
+      },
+      "count": 2
+    },
+    {
+      "slug": "hr-coordinator",
+      "name": "HR Coordinator",
+      "role": "Individual Contributor",
+      "reports_to": "chro",
+      "model_tier": "ROUTINE",
+      "model": "claude-haiku-4-5",
+      "mission": "Support HR operations, manage recruiting workflows, track employee records, process HR paperwork",
+      "kpis": [
+        "Time-to-hire (days)",
+        "Recruiting pipeline health",
+        "Employee onboarding completion %",
+        "HR paperwork processing time"
+      ],
+      "skills": [
+        "document-generator",
+        "email-reader",
+        "calendar-manager",
+        "web-browser"
+      ],
+      "custom_rules": [
+        "All hiring records must be properly documented and compliant",
+        "New hire onboarding checklist completion mandatory",
+        "Confidentiality and data privacy standards strictly enforced"
+      ],
+      "heartbeat_config": {
+        "checklist": [
+          "Review open job requisitions and status",
+          "Check candidate pipeline and interview schedule",
+          "Validate onboarding checklist completion",
+          "Confirm HR paperwork filing status"
+        ]
+      },
+      "count": 1
+    },
+    {
+      "slug": "executive-assistant",
+      "name": "Executive Assistant to CEO",
+      "role": "Individual Contributor",
+      "reports_to": "ceo",
+      "model_tier": "ROUTINE",
+      "model": "claude-haiku-4-5",
+      "mission": "Manage CEO schedule, organize meetings, prepare executive communications, coordinate strategic initiatives",
+      "kpis": [
+        "Calendar optimization score",
+        "Meeting preparation completeness %",
+        "Executive communication timeliness %",
+        "Initiative tracking accuracy %"
+      ],
+      "skills": [
+        "calendar-manager",
+        "email-reader",
+        "document-generator",
+        "web-browser"
+      ],
+      "custom_rules": [
+        "All CEO meetings require 24-hour advance preparation",
+        "Calendar management with conflict prevention mandatory",
+        "Board communication and materials requires proactive planning"
+      ],
+      "heartbeat_config": {
+        "checklist": [
+          "Review CEO calendar for upcoming week",
+          "Check meeting preparation status",
+          "Validate executive briefing materials",
+          "Confirm communication scheduling"
+        ]
+      },
+      "count": 1
+    },
+    {
+      "slug": "eval-engineer",
+      "name": "Evaluation Engineer",
+      "role": "Quality Assurance",
+      "reports_to": "cto",
+      "model_tier": "STRATEGIC",
+      "model": "claude-sonnet-4-6",
+      "mission": "Evaluate AI agent performance, conduct quality assessments, identify improvements, maintain evaluation standards",
+      "kpis": [
+        "Evaluation coverage %",
+        "Agent quality score",
+        "Performance improvement rate %",
+        "Standards compliance %"
+      ],
+      "skills": [
+        "web-browser",
+        "document-generator",
+        "firecrawl"
+      ],
+      "custom_rules": [
+        "All agents require regular evaluation and benchmarking",
+        "Quality improvements must be documented and tracked",
+        "Evaluation standards must be updated quarterly"
+      ],
+      "heartbeat_config": {
+        "checklist": [
+          "Review agent evaluation schedule",
+          "Check quality assessment results",
+          "Validate performance metrics tracking",
+          "Confirm improvement recommendations implemented"
+        ]
+      },
+      "count": 1
+    }
+  ],
+  "routines": [
+    {
+      "id": "daily-exec-briefing",
+      "name": "Daily Executive Briefing",
+      "description": "CEO receives comprehensive daily briefing on company metrics, strategic initiatives, and critical issues",
+      "assigned_role": "ceo",
+      "cron_expr": "0 7 * * 1-5",
+      "type": "SCHEDULED",
+      "issue_template": {
+        "title": "Daily Executive Briefing - {date}",
+        "description": "Comprehensive daily briefing covering:\n- Key performance metrics update\n- Strategic initiative progress\n- Critical issues and decisions required\n- Board/investor updates status\n- Team alignment notes",
+        "priority": "high",
+        "success_condition": "Briefing delivered by 7:00 AM, all critical issues flagged for action"
+      }
+    },
+    {
+      "id": "weekly-financial-report",
+      "name": "Weekly Financial Report",
+      "description": "CFO generates comprehensive weekly financial performance report including cash flow, expenses, and forecast updates",
+      "assigned_role": "cfo",
+      "cron_expr": "0 8 * * 1",
+      "type": "SCHEDULED",
+      "issue_template": {
+        "title": "Weekly Financial Report - Week of {date}",
+        "description": "Weekly financial analysis covering:\n- Cash position and runway\n- Revenue and expense tracking\n- Budget variance analysis\n- Headcount and payroll status\n- Financial forecast updates",
+        "priority": "high",
+        "success_condition": "Report completed by Monday 8:00 AM, all figures reconciled and verified"
+      }
+    },
+    {
+      "id": "weekly-marketing-report",
+      "name": "Weekly Marketing Report",
+      "description": "CMO provides weekly marketing performance overview including campaign metrics, lead generation, and channel performance",
+      "assigned_role": "cmo",
+      "cron_expr": "0 9 * * 1",
+      "type": "SCHEDULED",
+      "issue_template": {
+        "title": "Weekly Marketing Report - Week of {date}",
+        "description": "Weekly marketing analysis covering:\n- Campaign performance metrics\n- Lead generation volume and quality\n- Customer acquisition cost trends\n- Brand awareness metrics\n- Marketing ROI summary",
+        "priority": "high",
+        "success_condition": "Report delivered by Monday 9:00 AM with all KPIs updated and analyzed"
+      }
+    },
+    {
+      "id": "daily-sales-pipeline",
+      "name": "Daily Sales Pipeline Review",
+      "description": "VP Sales reviews and updates sales pipeline, tracks deal progression, and identifies bottlenecks",
+      "assigned_role": "vp-sales",
+      "cron_expr": "0 8 * * 1-5",
+      "type": "SCHEDULED",
+      "issue_template": {
+        "title": "Daily Sales Pipeline Review - {date}",
+        "description": "Daily pipeline health assessment covering:\n- New deals added and stage progression\n- At-risk deals and mitigation plans\n- Win rate and conversion metrics\n- Sales team activity and productivity\n- Forecast accuracy validation",
+        "priority": "high",
+        "success_condition": "Pipeline review completed, all deals accurately reflected in CRM, forecast updated"
+      }
+    },
+    {
+      "id": "weekly-content-calendar",
+      "name": "Weekly Content Calendar Planning",
+      "description": "Content writers and marketing team plan and schedule content for the week ahead",
+      "assigned_role": "content-writer",
+      "cron_expr": "0 18 * * 0",
+      "type": "SCHEDULED",
+      "issue_template": {
+        "title": "Weekly Content Calendar - Week of {date}",
+        "description": "Content planning and scheduling covering:\n- Content pieces to be created and published\n- Publishing schedule and channels\n- SEO optimization targets\n- Content distribution plan\n- Editor review schedule",
+        "priority": "medium",
+        "success_condition": "Content calendar completed, all pieces scheduled, editors notified of deadlines"
+      }
+    },
+    {
+      "id": "daily-social-posts",
+      "name": "Daily Social Media Posts",
+      "description": "Social media manager schedules and publishes daily content across all social platforms",
+      "assigned_role": "social-media-manager",
+      "cron_expr": "0 9 * * *",
+      "type": "SCHEDULED",
+      "issue_template": {
+        "title": "Daily Social Posts - {date}",
+        "description": "Daily social media posting covering:\n- Platform-specific content scheduling\n- Engagement monitoring and response\n- Hashtag and messaging optimization\n- Cross-platform consistency\n- Analytics tracking setup",
+        "priority": "high",
+        "success_condition": "All daily posts scheduled and published by 9:00 AM, engagement monitoring active"
+      }
+    },
+    {
+      "id": "weekly-customer-health",
+      "name": "Weekly Customer Health Review",
+      "description": "VP Customer Success reviews customer health scores, identifies at-risk accounts, and plans retention activities",
+      "assigned_role": "vp-customer-success",
+      "cron_expr": "0 10 * * 1",
+      "type": "SCHEDULED",
+      "issue_template": {
+        "title": "Weekly Customer Health Review - Week of {date}",
+        "description": "Customer success assessment covering:\n- Customer health score analysis\n- At-risk account identification and action plans\n- Expansion opportunity tracking\n- Onboarding progress monitoring\n- NPS and CSAT metrics review",
+        "priority": "high",
+        "success_condition": "All customer accounts reviewed, action plans created for at-risk customers, metrics current"
+      }
+    },
+    {
+      "id": "monthly-board-report",
+      "name": "Monthly Board Report",
+      "description": "CEO prepares comprehensive monthly board report including metrics, updates, and strategic progress",
+      "assigned_role": "ceo",
+      "cron_expr": "0 9 1 * *",
+      "type": "SCHEDULED",
+      "issue_template": {
+        "title": "Monthly Board Report - {month}",
+        "description": "Comprehensive board reporting covering:\n- Financial performance summary\n- Product roadmap progress\n- Sales and customer metrics\n- Team updates and headcount changes\n- Strategic initiatives status\n- Risk assessment and mitigation",
+        "priority": "critical",
+        "success_condition": "Board report completed by 1st of month, all executives contributed, board-ready format"
+      }
+    },
+    {
+      "id": "weekly-engineering-metrics",
+      "name": "Weekly Engineering Metrics Review",
+      "description": "CTO reviews engineering performance metrics including velocity, deployment frequency, and system reliability",
+      "assigned_role": "cto",
+      "cron_expr": "0 16 * * 5",
+      "type": "SCHEDULED",
+      "issue_template": {
+        "title": "Weekly Engineering Metrics Review - Week of {date}",
+        "description": "Engineering performance assessment covering:\n- Sprint velocity and team capacity\n- Code quality and technical debt metrics\n- Deployment frequency and reliability\n- System uptime and incident response\n- Architecture review status",
+        "priority": "high",
+        "success_condition": "All engineering metrics collected and analyzed, team performance assessed, improvements identified"
+      }
+    },
+    {
+      "id": "daily-support-queue",
+      "name": "Daily Support Queue Management",
+      "description": "Customer support agents process daily support tickets, resolve issues, and maintain SLA compliance",
+      "assigned_role": "customer-support-agent",
+      "cron_expr": "0 8 * * *",
+      "type": "SCHEDULED",
+      "issue_template": {
+        "title": "Daily Support Queue - {date}",
+        "description": "Daily support operations covering:\n- Support ticket queue processing\n- Issue resolution and customer satisfaction\n- SLA compliance monitoring\n- Escalation tracking and resolution\n- Documentation and knowledge base updates",
+        "priority": "high",
+        "success_condition": "All support tickets processed, SLA maintained, customer satisfaction tracked"
+      }
+    }
+  ]
+}

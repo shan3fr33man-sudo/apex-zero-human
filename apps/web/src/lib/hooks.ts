@@ -14,7 +14,7 @@ export function useCompanies() {
     const supabase = createClient();
     supabase
       .from('companies')
-      .select('id, name, config')
+      .select('id, name, config, settings, slug, goal, status, token_budget, tokens_used')
       .order('created_at', { ascending: false })
       .then(({ data }) => {
         setCompanies(data ?? []);

@@ -23,29 +23,34 @@ export default function CompaniesPage() {
     } = await supabase.auth.getUser();
     if (!user) return;
 
+    // Get user's org membership to determine org_id
+    const { data: membership } = await supabase
+      .from('memberships')
+      .select('org_id')
+      .limit(1)
+      .single();
+
+    if (!membership) {
+      setCreating(false);
+      return;
+    }
+
+    const slug = newName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
     const { data: company } = await supabase
       .from('companies')
       .insert({
         name: newName,
-        owner_id: user.id,
-        config: { goal: newGoal, vertical: 'custom' },
+        slug,
+        org_id: membership.org_id,
+        goal: newGoal,
+        config: { vertical: 'custom' },
+        settings: {},
       })
       .select()
       .single();
 
     if (company) {
-      // Auto-spawn CEO
-      await supabase.from('agents').insert({
-        company_id: company.id,
-        role: 'ceo',
-        name: 'CEO',
-        model_tier: 'STRATEGIC',
-        status: 'idle',
-        persona: `You are the CEO of ${newName}. Goal: ${newGoal}`,
-        config: {},
-        heartbeat_checklist: {},
-      });
-
       setCompanyId(company.id);
       setShowCreate(false);
       setNewName('');
