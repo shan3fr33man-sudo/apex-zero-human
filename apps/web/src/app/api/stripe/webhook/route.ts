@@ -139,7 +139,7 @@ export async function POST(request: Request) {
 
     case 'invoice.payment_failed': {
       const invoice = event.data.object as Stripe.Invoice;
-      const subscriptionId = invoice.subscription as string;
+      const subscriptionId = (invoice as unknown as { subscription: string }).subscription;
 
       // Find org and alert them
       const { data: org } = await supabase
