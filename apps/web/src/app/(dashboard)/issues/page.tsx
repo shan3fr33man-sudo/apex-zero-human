@@ -152,7 +152,7 @@ export default function IssuesPage() {
                   {selectedIssue.description || 'No description'}
                 </p>
               </div>
-              {selectedIssue.metadata?.success_condition && (
+              {!!selectedIssue.metadata?.success_condition && (
                 <div>
                   <label className="text-[10px] text-apex-muted font-mono uppercase tracking-widest">
                     Success Condition
