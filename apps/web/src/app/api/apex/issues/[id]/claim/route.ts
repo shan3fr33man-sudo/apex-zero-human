@@ -66,10 +66,10 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
     );
   }
 
-  // Update agent's current_issue_id
+  // Update agent status to working
   await supabase
     .from('agents')
-    .update({ current_issue_id: issueId, status: 'working' })
+    .update({ status: 'working' })
     .eq('id', agent_id);
 
   return NextResponse.json(claimed);

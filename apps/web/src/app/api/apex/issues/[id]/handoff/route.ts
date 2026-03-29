@@ -56,10 +56,10 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
     return NextResponse.json({ error: updateErr.message }, { status: 500 });
   }
 
-  // Clear from_agent's current issue
+  // Reset from_agent status
   await supabase
     .from('agents')
-    .update({ current_issue_id: null, status: 'idle' })
+    .update({ status: 'idle' })
     .eq('id', from_agent_id);
 
   // Record handoff in issue comments

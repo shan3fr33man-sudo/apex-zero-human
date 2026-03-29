@@ -25,7 +25,7 @@ export async function GET(_req: NextRequest, ctx: RouteContext) {
       .limit(50),
     supabase
       .from('agents')
-      .select('id, name, role, status, current_issue_id')
+      .select('id, name, role, status')
       .eq('company_id', companyId)
       .neq('status', 'terminated'),
     supabase

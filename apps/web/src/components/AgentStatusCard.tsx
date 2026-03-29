@@ -9,7 +9,6 @@ interface Agent {
   role: string;
   name: string;
   status: AgentStatus;
-  avg_quality_score: number | null;
   tokens_used: number | null;
   issues_completed: number | null;
 }
@@ -58,19 +57,7 @@ export function AgentStatusCard({
         {agent.name}
       </div>
 
-      <div className="grid grid-cols-3 gap-2 text-xs font-mono">
-        <div>
-          <div className="text-apex-muted mb-0.5">QUALITY</div>
-          <div
-            className={
-              (agent.avg_quality_score ?? 0) < 70
-                ? 'text-apex-danger'
-                : 'text-apex-accent'
-            }
-          >
-            {agent.avg_quality_score?.toFixed(0) ?? '--'}/100
-          </div>
-        </div>
+      <div className="grid grid-cols-2 gap-2 text-xs font-mono">
         <div>
           <div className="text-apex-muted mb-0.5">TOKENS</div>
           <div className="text-apex-text">
