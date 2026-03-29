@@ -3,8 +3,8 @@ import { getSupabaseServiceRole } from '@/lib/supabase-server';
 
 /**
  * GET /api/apex/fleet/status?company_id=xxx
- * Returns fleet status for a company — vehicles, drivers, availability.
- * Pulls from company config (fleet data is stored in config.fleet).
+ * Returns resource status for a company — assets, teams, availability.
+ * Pulls from company config (resource data is stored in config.fleet).
  */
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -31,9 +31,9 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     company_id: companyId,
-    fleet,
+    resources: fleet,
     summary: {
-      total_vehicles: fleet.length,
+      total_resources: fleet.length,
       available: fleet.filter(
         (v) => v.status === 'available'
       ).length,

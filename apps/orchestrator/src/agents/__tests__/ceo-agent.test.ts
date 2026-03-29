@@ -19,6 +19,11 @@ vi.mock('@anthropic-ai/sdk', () => ({
   })),
 }));
 
+vi.mock('../../lib/key-vault.js', () => ({
+  getDecryptedKeyForCompany: vi.fn().mockResolvedValue('test-api-key'),
+  BYOKRequiredError: Error,
+}));
+
 import { TokenGateway } from '../../core/token-gateway.js';
 import { HeartbeatStateMachine } from '../../core/heartbeat.js';
 import { TaskRouter } from '../../core/task-router.js';
