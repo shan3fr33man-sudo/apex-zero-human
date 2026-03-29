@@ -4,7 +4,8 @@ import { getSupabaseServiceRole } from '@/lib/supabase-server';
 /**
  * POST /api/auth/signup
  * Creates a new user with auto-confirmed email (no email verification required).
- * Also creates the tenant, organization, user record, and membership.
+ * The handle_new_user trigger creates the public.users row automatically.
+ * This route creates: organization + membership.
  */
 export async function POST(request: Request) {
   try {
@@ -27,6 +28,7 @@ export async function POST(request: Request) {
     const supabase = getSupabaseServiceRole();
 
     // 1. Create the auth user with auto-confirmed email
+    //    The handle_new_user trigger automatically inserts into public.users
     const { data: authData, error: authError } =
       await supabase.auth.admin.createUser({
         email,
@@ -44,69 +46,39 @@ export async function POST(request: Request) {
 
     const authUser = authData.user;
 
-    // 2. Create default tenant
-    const { data: tenant, error: tenantError } = await supabase
-      .from('tenants')
+    // 2. Create default organization (no tenants table — orgs are top-level)
+    const orgSlug = email.split('@')[0].toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-org';
+    const { data: org, error: orgError } = await supabase
+      .from('organizations')
       .insert({
-        name: 'Default',
-        slug: `tenant-${authUser.id.slice(0, 8)}`,
+        name: `${email.split('@')[0]}'s Organization`,
+        slug: orgSlug,
+        plan: 'free',
       })
       .select()
       .single();
 
-    if (tenantError) {
-      console.error('[signup] Tenant creation error:', tenantError.message);
-      // Don't fail signup — tenant/org can be created during onboarding
+    if (orgError) {
+      console.error('[signup] Org creation error:', orgError.message);
+      return NextResponse.json(
+        { error: 'Failed to create organization: ' + orgError.message },
+        { status: 500 }
+      );
     }
 
-    // 3. Create default organization
-    let org = null;
-    if (tenant) {
-      const { data: orgData, error: orgError } = await supabase
-        .from('organizations')
-        .insert({
-          tenant_id: tenant.id,
-          name: 'My Organization',
-          slug: `org-${authUser.id.slice(0, 8)}`,
-        })
-        .select()
-        .single();
-
-      if (orgError) {
-        console.error('[signup] Org creation error:', orgError.message);
-      } else {
-        org = orgData;
-      }
-    }
-
-    // 4. Create user record linked to auth user
-    const { data: userRecord, error: userError } = await supabase
-      .from('users')
+    // 3. Create membership (user_id = auth.uid, org_id = new org)
+    //    memberships.user_id references the auth user UUID directly
+    const { error: memberError } = await supabase
+      .from('memberships')
       .insert({
-        auth_id: authUser.id,
-        email: authUser.email!,
+        user_id: authUser.id,
+        org_id: org.id,
         role: 'owner',
-      })
-      .select()
-      .single();
+      });
 
-    if (userError) {
-      console.error('[signup] User record error:', userError.message);
-    }
-
-    // 5. Create membership (user → org)
-    if (org && userRecord) {
-      const { error: memberError } = await supabase
-        .from('memberships')
-        .insert({
-          user_id: userRecord.id,
-          org_id: org.id,
-          role: 'owner',
-        });
-
-      if (memberError) {
-        console.error('[signup] Membership error:', memberError.message);
-      }
+    if (memberError) {
+      console.error('[signup] Membership error:', memberError.message);
+      // Non-fatal — user can still use the system but company creation will need fixing
     }
 
     return NextResponse.json({
@@ -114,7 +86,7 @@ export async function POST(request: Request) {
         id: authUser.id,
         email: authUser.email,
       },
-      orgId: org?.id ?? null,
+      orgId: org.id,
     });
   } catch (err) {
     console.error('[signup] Unexpected error:', err);

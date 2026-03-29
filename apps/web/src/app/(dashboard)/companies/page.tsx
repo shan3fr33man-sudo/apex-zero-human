@@ -37,18 +37,23 @@ export default function CompaniesPage() {
 
     const slug = newName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
-    const { data: company } = await supabase
+    const { data: company, error: companyError } = await supabase
       .from('companies')
       .insert({
         name: newName,
         slug,
         org_id: membership.org_id,
-        goal: newGoal,
-        config: { vertical: 'custom' },
+        description: newGoal || null,
         settings: {},
       })
       .select()
       .single();
+
+    if (companyError) {
+      console.error('[companies] Create error:', companyError.message);
+      setCreating(false);
+      return;
+    }
 
     if (company) {
       setCompanyId(company.id);
@@ -156,8 +161,8 @@ export default function CompaniesPage() {
                   <h3 className="text-sm font-sans font-medium text-apex-text">
                     {company.name}
                   </h3>
-                  <p className="text-xs text-apex-muted font-mono mt-1">
-                    {(company.config as Record<string, string>)?.vertical ?? 'custom'} vertical
+                  <p className="text-xs text-apex-muted font-mono mt-1 truncate max-w-xs">
+                    {company.description || 'No description'}
                   </p>
                 </div>
                 <span className="text-[10px] font-mono text-apex-accent px-2 py-1 rounded bg-apex-accent/10">

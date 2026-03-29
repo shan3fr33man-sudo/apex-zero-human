@@ -19,11 +19,11 @@ export async function POST(request: Request) {
 
     const supabase = getSupabaseServiceRole();
 
-    // 1. Find the user record by auth_id
+    // 1. Find the user record — users.id IS the auth UUID (set by handle_new_user trigger)
     const { data: userRecord, error: userError } = await supabase
       .from('users')
       .select('id')
-      .eq('auth_id', authId)
+      .eq('id', authId)
       .single();
 
     if (userError || !userRecord) {
@@ -35,18 +35,50 @@ export async function POST(request: Request) {
     }
 
     // 2. Find the user's organization (created during signup)
+    //    If missing (e.g. OAuth user), create one now
+    let orgId: string;
     const { data: membership, error: memberError } = await supabase
       .from('memberships')
       .select('org_id')
-      .eq('user_id', userRecord.id)
+      .eq('user_id', authId)
       .single();
 
     if (memberError || !membership) {
-      console.error('[onboard] Membership lookup error:', memberError?.message);
-      return NextResponse.json(
-        { error: 'Organization not found. Please try signing up again.' },
-        { status: 404 }
-      );
+      console.log('[onboard] No membership found, creating org for OAuth user');
+
+      // Get user email for org name
+      const { data: { user: authUser } } = await supabase.auth.admin.getUserById(authId);
+      const email = authUser?.email || 'user';
+      const orgSlug = email.split('@')[0].toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-org';
+
+      const { data: org, error: orgError } = await supabase
+        .from('organizations')
+        .insert({
+          name: `${email.split('@')[0]}'s Organization`,
+          slug: orgSlug,
+          plan: 'free',
+        })
+        .select()
+        .single();
+
+      if (orgError) {
+        console.error('[onboard] Org creation error:', orgError.message);
+        return NextResponse.json(
+          { error: 'Failed to create organization: ' + orgError.message },
+          { status: 500 }
+        );
+      }
+
+      // Create membership
+      await supabase.from('memberships').insert({
+        user_id: authId,
+        org_id: org.id,
+        role: 'owner',
+      });
+
+      orgId = org.id;
+    } else {
+      orgId = membership.org_id;
     }
 
     // 3. Create the company
@@ -59,10 +91,10 @@ export async function POST(request: Request) {
     const { data: company, error: companyError } = await supabase
       .from('companies')
       .insert({
-        org_id: membership.org_id,
+        org_id: orgId,
         name: companyName,
         slug: slug || `company-${Date.now()}`,
-        goal: goal || null,
+        description: goal || null,
         status: 'active',
         token_budget: 1000000,
       })
@@ -77,13 +109,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // 4. Mark user as onboarded
-    await supabase
-      .from('users')
-      .update({ onboarded: true, full_name: companyName + ' Owner' })
-      .eq('id', userRecord.id);
-
-    // 5. Auto-spawn CEO agent
+    // 4. Auto-spawn CEO agent
     const { error: agentError } = await supabase.from('agents').insert({
       company_id: company.id,
       name: 'CEO',
