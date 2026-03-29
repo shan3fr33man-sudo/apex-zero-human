@@ -1,21 +1,24 @@
 /**
  * Shared types for APEX agent system.
+ * Aligned with actual Supabase schema (twsgkmzsayyryqxzfryd).
  */
 
 export interface AgentConfig {
   id: string;
   company_id: string;
   company_name: string;
-  company_goal: string;
+  company_description: string;
   name: string;
+  slug: string;
   role: string;
   persona: string | null;
-  model_tier: 'STRATEGIC' | 'TECHNICAL' | 'ROUTINE';
+  system_prompt: string | null;
+  model: string;
   reports_to: string | null;
   reports_to_name: string | null;
   reports_to_role: string | null;
-  custom_rules: string[];
-  installed_skills: string[];
+  heartbeat_checklist: Record<string, unknown>;
+  config: Record<string, unknown>;
   brand_guide: string | null;
 }
 
@@ -24,12 +27,20 @@ export interface Issue {
   company_id: string;
   title: string;
   description: string | null;
-  success_condition: string | null;
   status: string;
-  priority: number;
+  priority: 'critical' | 'high' | 'medium' | 'low';
+  type: 'task' | 'bug' | 'feature' | 'research' | 'routine' | 'heartbeat';
   assigned_to: string | null;
-  parent_issue_id: string | null;
+  created_by: string | null;
+  parent_id: string | null;
+  locked_by: string | null;
+  locked_at: string | null;
+  estimated_tokens: number | null;
+  actual_tokens: number | null;
   metadata: Record<string, unknown>;
+  due_at: string | null;
+  started_at: string | null;
+  completed_at: string | null;
 }
 
 export interface HandoffResult {

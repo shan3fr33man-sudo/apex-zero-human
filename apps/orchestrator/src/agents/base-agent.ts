@@ -161,13 +161,13 @@ export abstract class BaseAgent {
         agentId: config.id,
         companyId: config.company_id,
         companyName: config.company_name,
-        companyGoal: config.company_goal,
+        companyGoal: config.company_description,
         reportsToName: config.reports_to_name ?? 'Operator (Human)',
         reportsToRole: config.reports_to_role ?? 'Board Member',
         roleMission: this.roleMission,
         successMetrics: this.successMetrics,
-        customRules: config.custom_rules,
-        installedSkills: config.installed_skills,
+        customRules: (config.config as Record<string, unknown>)?.custom_rules as string[] ?? [],
+        installedSkills: (config.config as Record<string, unknown>)?.installed_skills as string[] ?? [],
         brandGuide: config.brand_guide ?? 'No brand guide set. Use professional, clear language.',
         memoryContext: memoryPrompt,
         researchContext,
@@ -464,8 +464,8 @@ ${entries}
     const issueBlock = [
       `## Issue: ${issue.title}`,
       issue.description ? `\n### Description\n${issue.description}` : '',
-      issue.success_condition ? `\n### Success Condition\n${issue.success_condition}` : '',
-      `\n### Priority: ${issue.priority}/100`,
+      issue.metadata?.success_condition ? `\n### Success Condition\n${issue.metadata.success_condition}` : '',
+      `\n### Priority: ${issue.priority}`,
       issue.metadata ? `\n### Metadata\n${JSON.stringify(issue.metadata, null, 2)}` : '',
     ].filter(Boolean).join('\n');
 
@@ -573,12 +573,12 @@ ${entries}
    * Get the parent objective for an issue from its parent issue (if any).
    */
   private async getParentObjective(issue: Issue): Promise<string> {
-    if (!issue.parent_issue_id) return 'General company operations';
+    if (!issue.parent_id) return 'General company operations';
 
     const { data } = await this.supabase
       .from('issues')
       .select('title, description')
-      .eq('id', issue.parent_issue_id)
+      .eq('id', issue.parent_id)
       .single();
 
     return (data as any)?.title ?? 'General company operations';

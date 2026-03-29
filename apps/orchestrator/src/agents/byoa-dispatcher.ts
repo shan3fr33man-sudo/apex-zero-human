@@ -29,7 +29,7 @@ export interface HeartbeatPayload {
     title: string;
     description: string | null;
     success_condition: string | null;
-    priority: number;
+    priority: string;
     metadata: Record<string, unknown>;
   };
   memory_context: string;
@@ -170,18 +170,18 @@ export class BYOADispatcher {
       agent_role: config.role,
       company_id: config.company_id,
       company_name: config.company_name,
-      company_goal: config.company_goal,
+      company_goal: config.company_description,
       issue: {
         id: issue.id,
         title: issue.title,
         description: issue.description,
-        success_condition: issue.success_condition,
+        success_condition: (issue.metadata?.success_condition as string) ?? null,
         priority: issue.priority,
         metadata: issue.metadata,
       },
       memory_context: memoryContext,
       research_context: researchContext,
-      installed_skills: config.installed_skills,
+      installed_skills: ((config.config as Record<string, unknown>)?.installed_skills as string[]) ?? [],
     };
   }
 

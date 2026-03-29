@@ -94,13 +94,13 @@ export async function verifyClaudeKey(apiKey: string): Promise<boolean> {
 }
 
 /**
- * Get the decrypted Claude API key for a tenant.
- * Resolves tenant from company → org → tenant chain.
+ * Get the decrypted Claude API key for a company.
+ * Resolves: company → organization → api_key_encrypted.
  */
 export async function getDecryptedKeyForCompany(companyId: string): Promise<string> {
   const supabase = getSupabaseAdmin();
 
-  // Traverse: company → org → tenant
+  // Traverse: company → org
   const { data: company } = await supabase
     .from('companies')
     .select('org_id')
@@ -109,45 +109,37 @@ export async function getDecryptedKeyForCompany(companyId: string): Promise<stri
 
   if (!company) throw new BYOKRequiredError('Company not found');
 
-  const { data: org } = await supabase
-    .from('organizations')
-    .select('tenant_id')
-    .eq('id', company.org_id)
-    .single();
-
-  if (!org) throw new BYOKRequiredError('Organization not found');
-
-  return getDecryptedKey(org.tenant_id);
+  return getDecryptedKeyForOrg(company.org_id);
 }
 
 /**
- * Get the decrypted Claude API key for a tenant by tenant ID.
+ * Get the decrypted Claude API key for an organization.
  */
-export async function getDecryptedKey(tenantId: string): Promise<string> {
+export async function getDecryptedKeyForOrg(orgId: string): Promise<string> {
   const supabase = getSupabaseAdmin();
 
-  const { data: tenant } = await supabase
-    .from('tenants')
-    .select('claude_api_key_encrypted, byok_verified')
-    .eq('id', tenantId)
+  const { data: org } = await supabase
+    .from('organizations')
+    .select('api_key_encrypted, byok_verified')
+    .eq('id', orgId)
     .single();
 
-  if (!tenant || !tenant.claude_api_key_encrypted) {
+  if (!org || !org.api_key_encrypted) {
     throw new BYOKRequiredError(
       'No Claude API key configured. Add your key in Settings → API Keys.'
     );
   }
 
-  if (!tenant.byok_verified) {
+  if (!org.byok_verified) {
     throw new BYOKRequiredError(
       'Claude API key has not been verified. Please verify your key in Settings → API Keys.'
     );
   }
 
   try {
-    return decryptKey(tenant.claude_api_key_encrypted);
+    return decryptKey(org.api_key_encrypted);
   } catch (err) {
-    log.error('Failed to decrypt tenant key', { tenantId });
+    log.error('Failed to decrypt org key', { orgId });
     throw new BYOKRequiredError('Failed to decrypt API key. Please re-enter your key.');
   }
 }

@@ -74,7 +74,8 @@ export class TokenGateway {
       model: usage.model,
       input_tokens: usage.inputTokens,
       output_tokens: usage.outputTokens,
-      cost_usd: usage.costUsd ?? null,
+      total_tokens: usage.inputTokens + usage.outputTokens,
+      estimated_cost: usage.costUsd ?? null,
     });
 
     if (error) {
@@ -127,78 +128,24 @@ export class TokenGateway {
   }
 
   /**
-   * Check per-agent budget ceiling before LLM call.
-   * Sends 80% soft warning, hard stops at 100%.
+   * Record agent-level token usage (increment tokens_used on agents table).
    */
-  async checkAgentBudget(agentId: string, companyId: string, estimatedTokens: number): Promise<TokenCheckResult> {
-    const { data } = await this.supabase
+  async recordAgentUsage(agentId: string, tokensUsed: number): Promise<void> {
+    const { data: agent } = await this.supabase
       .from('agents')
-      .select('monthly_token_budget, tokens_used_this_month, budget_warning_sent, name')
+      .select('tokens_used')
       .eq('id', agentId)
       .single();
 
-    if (!data) return { allowed: true, remaining: 999999 };
+    if (!agent) return;
 
-    const agent = data as { monthly_token_budget: number | null; tokens_used_this_month: number; budget_warning_sent: boolean; name: string };
-
-    // If no per-agent budget is set, skip agent-level check
-    if (!agent.monthly_token_budget) return { allowed: true, remaining: 999999 };
-
-    const remaining = agent.monthly_token_budget - agent.tokens_used_this_month;
-    const utilization = agent.tokens_used_this_month / agent.monthly_token_budget;
-
-    // 80% soft warning
-    if (utilization >= 0.8 && !agent.budget_warning_sent) {
-      await this.supabase.from('inbox_items').insert({
-        company_id: companyId,
-        item_type: 'BUDGET_ALERT',
-        title: `Agent "${agent.name}" at ${Math.round(utilization * 100)}% of monthly budget`,
-        description: `${agent.name} has used ${agent.tokens_used_this_month.toLocaleString()} of ${agent.monthly_token_budget.toLocaleString()} monthly tokens. Consider increasing the budget or reviewing task allocation.`,
-        payload: { agent_id: agentId, utilization: Math.round(utilization * 100) },
-      });
-      await this.supabase.from('agents').update({ budget_warning_sent: true }).eq('id', agentId);
-      log.warn('Agent budget 80% warning', { agentId, utilization: Math.round(utilization * 100) });
-    }
-
-    // 100% hard stop
-    if (remaining < estimatedTokens) {
-      log.warn('Agent budget exceeded', { agentId, remaining, requested: estimatedTokens });
-      return {
-        allowed: false,
-        remaining,
-        reason: `AGENT_BUDGET_EXCEEDED: ${agent.name} has exhausted their monthly token budget`
-      };
-    }
-
-    return { allowed: true, remaining };
-  }
-
-  /**
-   * Record agent-level token usage (increment tokens_used_this_month).
-   */
-  async recordAgentUsage(agentId: string, tokensUsed: number): Promise<void> {
-    const { error } = await this.supabase.rpc('increment_agent_tokens', {
-      p_agent_id: agentId,
-      p_tokens: tokensUsed,
-    });
-    // Silently fail — agent tracking is non-critical
-    if (error) {
-      log.warn('Failed to increment agent tokens', { agentId, error: error.message });
-    }
-  }
-
-  /**
-   * Reset all agents' monthly token usage (called on 1st of every month).
-   */
-  async resetAllAgentBudgets(): Promise<void> {
-    log.info('Resetting all agent monthly budgets');
     const { error } = await this.supabase
       .from('agents')
-      .update({ tokens_used_this_month: 0, budget_warning_sent: false })
-      .neq('id', '');  // Update all agents
+      .update({ tokens_used: (agent.tokens_used ?? 0) + tokensUsed })
+      .eq('id', agentId);
 
     if (error) {
-      log.error('Failed to reset agent budgets', { error: error.message });
+      log.warn('Failed to increment agent tokens', { agentId, error: error.message });
     }
   }
 

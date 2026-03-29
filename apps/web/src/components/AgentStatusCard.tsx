@@ -10,10 +10,8 @@ interface Agent {
   name: string;
   status: AgentStatus;
   avg_quality_score: number | null;
-  total_tokens_used: number | null;
-  total_tasks_done: number | null;
-  current_issue_id: string | null;
-  current_issue_title?: string;
+  tokens_used: number | null;
+  issues_completed: number | null;
 }
 
 const STATUS_STYLES: Record<AgentStatus, string> = {
@@ -76,20 +74,15 @@ export function AgentStatusCard({
         <div>
           <div className="text-apex-muted mb-0.5">TOKENS</div>
           <div className="text-apex-text">
-            {formatTokens(agent.total_tokens_used)}
+            {formatTokens(agent.tokens_used)}
           </div>
         </div>
         <div>
           <div className="text-apex-muted mb-0.5">TASKS</div>
-          <div className="text-apex-text">{agent.total_tasks_done ?? 0}</div>
+          <div className="text-apex-text">{agent.issues_completed ?? 0}</div>
         </div>
       </div>
 
-      {agent.current_issue_id && (
-        <div className="mt-3 pt-3 border-t border-apex-border text-xs text-apex-muted truncate font-sans">
-          ▶ {agent.current_issue_title ?? 'Working on issue...'}
-        </div>
-      )}
     </div>
   );
 }

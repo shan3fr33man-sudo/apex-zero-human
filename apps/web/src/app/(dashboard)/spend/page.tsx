@@ -8,9 +8,9 @@ interface AgentRow {
   id: string;
   name: string;
   role: string;
-  model_tier: string;
-  total_tokens_used: number | null;
-  total_tasks_done: number | null;
+  model: string;
+  tokens_used: number | null;
+  issues_completed: number | null;
   company_id: string;
 }
 
@@ -29,11 +29,6 @@ const MODEL_COSTS: Record<string, number> = {
   'claude-haiku-4-5': 0.001,
 };
 
-const TIER_MODEL: Record<string, string> = {
-  STRATEGIC: 'claude-sonnet-4-6',
-  TECHNICAL: 'claude-sonnet-4-5',
-  ROUTINE: 'claude-haiku-4-5',
-};
 
 export default function SpendPage() {
   const { companyId } = useActiveCompany();
@@ -45,15 +40,15 @@ export default function SpendPage() {
     useRealtimeTable<TokenLogRow>('token_logs', companyId);
 
   const totalTokens = agents.reduce(
-    (sum, a) => sum + (a.total_tokens_used ?? 0),
+    (sum, a) => sum + (a.tokens_used ?? 0),
     0
   );
 
   // Per-model breakdown
   const modelBreakdown = agents.reduce<Record<string, { tokens: number; cost: number }>>(
     (acc, a) => {
-      const model = TIER_MODEL[a.model_tier] ?? 'unknown';
-      const tokens = a.total_tokens_used ?? 0;
+      const model = a.model ?? 'unknown';
+      const tokens = a.tokens_used ?? 0;
       const costPer1K = MODEL_COSTS[model] ?? 0.01;
       if (!acc[model]) acc[model] = { tokens: 0, cost: 0 };
       acc[model].tokens += tokens;
@@ -123,7 +118,7 @@ export default function SpendPage() {
               totalCost /
                 Math.max(
                   1,
-                  agents.reduce((s, a) => s + (a.total_tasks_done ?? 0), 0)
+                  agents.reduce((s, a) => s + (a.issues_completed ?? 0), 0)
                 )
             )}
           </div>
@@ -170,8 +165,8 @@ export default function SpendPage() {
               </tr>
             ) : (
               agents.map((agent) => {
-                const model = TIER_MODEL[agent.model_tier] ?? 'unknown';
-                const tokens = agent.total_tokens_used ?? 0;
+                const model = agent.model ?? 'unknown';
+                const tokens = agent.tokens_used ?? 0;
                 const cost = (tokens / 1000) * (MODEL_COSTS[model] ?? 0.01);
                 return (
                   <tr
@@ -191,7 +186,7 @@ export default function SpendPage() {
                       {formatTokens(tokens)}
                     </td>
                     <td className="p-3 text-xs font-mono text-apex-text text-right">
-                      {agent.total_tasks_done ?? 0}
+                      {agent.issues_completed ?? 0}
                     </td>
                     <td className="p-3 text-xs font-mono text-apex-accent text-right">
                       {formatCost(cost)}

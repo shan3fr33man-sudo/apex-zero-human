@@ -174,9 +174,163 @@ export class Engine {
         companyId,
       });
 
-      // The agent execution loop (heartbeat → work → handoff) will be
-      // implemented in Phase 3 when we build the Base Agent class.
-      // For now, the claim is recorded and the agent status is set to 'working'.
+      // Execute agent asynchronously — don't block the tick loop
+      this.executeAgent(agent.id, issueId, companyId).catch(err => {
+        log.error('Agent execution failed', {
+          agentId: agent.id,
+          issueId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      });
+    }
+  }
+
+  /**
+   * Execute an agent on an issue through the full heartbeat cycle.
+   * Loads the agent config, resolves the issue, and delegates to the
+   * appropriate agent class based on role.
+   */
+  private async executeAgent(agentId: string, issueId: string, companyId: string): Promise<void> {
+    // Load agent details
+    const { data: agent } = await this.supabase
+      .from('agents')
+      .select('id, company_id, name, slug, role, persona, system_prompt, model, reports_to, heartbeat_checklist, config')
+      .eq('id', agentId)
+      .single();
+
+    if (!agent) {
+      log.error('Agent not found for execution', { agentId });
+      return;
+    }
+
+    // Load company details
+    const { data: company } = await this.supabase
+      .from('companies')
+      .select('id, name, description, brand')
+      .eq('id', companyId)
+      .single();
+
+    if (!company) {
+      log.error('Company not found for execution', { companyId });
+      return;
+    }
+
+    // Load reporting chain
+    let reportsToName: string | null = null;
+    let reportsToRole: string | null = null;
+    if (agent.reports_to) {
+      const { data: manager } = await this.supabase
+        .from('agents')
+        .select('name, role')
+        .eq('id', agent.reports_to)
+        .single();
+      if (manager) {
+        reportsToName = manager.name;
+        reportsToRole = manager.role;
+      }
+    }
+
+    // Load issue
+    const { data: issue } = await this.supabase
+      .from('issues')
+      .select('*')
+      .eq('id', issueId)
+      .single();
+
+    if (!issue) {
+      log.error('Issue not found for execution', { issueId });
+      await this.taskRouter.releaseIssue(issueId);
+      return;
+    }
+
+    // Build AgentConfig
+    const agentConfig = {
+      id: agent.id,
+      company_id: agent.company_id,
+      company_name: company.name,
+      company_description: company.description ?? '',
+      name: agent.name,
+      slug: agent.slug,
+      role: agent.role,
+      persona: agent.persona,
+      system_prompt: agent.system_prompt,
+      model: agent.model,
+      reports_to: agent.reports_to,
+      reports_to_name: reportsToName,
+      reports_to_role: reportsToRole,
+      heartbeat_checklist: agent.heartbeat_checklist ?? {},
+      config: agent.config ?? {},
+      brand_guide: (company.brand as Record<string, unknown>)?.guide as string ?? null,
+    };
+
+    // Resolve agent class based on role
+    const { resolveAgentForRole } = await import('../agents/role-resolver.js');
+    const agentInstance = resolveAgentForRole(
+      agent.role,
+      this.heartbeat,
+      this.tokenGateway,
+      this.taskRouter,
+      this.modelRouter,
+      this.memory,
+    );
+
+    log.info('Executing agent heartbeat cycle', {
+      agentId: agent.id,
+      agentName: agent.name,
+      role: agent.role,
+      issueId: issue.id,
+      issueTitle: issue.title,
+    });
+
+    try {
+      const result = await agentInstance.execute(agentConfig, issue);
+
+      if (result.success) {
+        log.info('Agent execution completed successfully', {
+          agentId: agent.id,
+          issueId: issue.id,
+          tokensUsed: result.tokensUsed,
+        });
+
+        // Record actual tokens on the issue
+        await this.supabase
+          .from('issues')
+          .update({ actual_tokens: result.tokensUsed })
+          .eq('id', issueId);
+
+        // Record token spend
+        await this.tokenGateway.recordUsage(companyId, agentId, issueId, {
+          model: result.model,
+          inputTokens: Math.floor(result.tokensUsed * 0.7), // estimate split
+          outputTokens: Math.floor(result.tokensUsed * 0.3),
+          costUsd: result.tokensUsed * 0.000003, // rough estimate
+        });
+
+        // Update agent token counter
+        await this.tokenGateway.recordAgentUsage(agentId, result.tokensUsed);
+
+        // Emit completion event
+        await this.eventBus.emit(companyId, 'issue.completed', agentId, {
+          issue_id: issueId,
+          agent_id: agentId,
+          tokens_used: result.tokensUsed,
+        });
+      } else {
+        log.warn('Agent execution failed', {
+          agentId: agent.id,
+          issueId: issue.id,
+          error: result.error,
+        });
+        await this.taskRouter.releaseIssue(issueId, 'open');
+      }
+    } catch (err) {
+      log.error('Agent execution threw error', {
+        agentId: agent.id,
+        issueId: issue.id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      await this.heartbeat.fail(agentId, issueId, err instanceof Error ? err.message : String(err));
+      await this.taskRouter.releaseIssue(issueId, 'open');
     }
   }
 

@@ -18,8 +18,8 @@ const IssueTemplateSchema = z.object({
   title: z.string().min(1),
   description: z.string().min(1),
   assigned_role: z.string().min(1),
-  priority: z.number().int().min(0).max(100),
-  success_condition: z.string().min(1),
+  priority: z.enum(['critical', 'high', 'medium', 'low']),
+  success_condition: z.string().min(1).optional(),
   metadata: z.record(z.unknown()).optional(),
 });
 
@@ -139,6 +139,17 @@ export async function POST(request: NextRequest) {
     nextRunAt = new Date().toISOString();
   }
 
+  const issueTemplate = {
+    ...input.issue_template,
+    ...(input.issue_template.success_condition && {
+      metadata: {
+        ...input.issue_template.metadata,
+        success_condition: input.issue_template.success_condition,
+      },
+    }),
+  };
+  delete (issueTemplate as any).success_condition;
+
   const { data, error } = await supabase
     .from('routines')
     .insert({
@@ -150,7 +161,7 @@ export async function POST(request: NextRequest) {
       cron_expr: input.cron_expr ?? null,
       timezone: input.timezone ?? null,
       event_pattern: input.event_pattern ?? null,
-      issue_template: input.issue_template,
+      issue_template: issueTemplate,
       next_run_at: nextRunAt,
       run_count: 0,
     })
@@ -191,6 +202,19 @@ export async function PATCH(request: NextRequest) {
   }
 
   const { id, company_id, ...updates } = parsed.data;
+
+  // Move success_condition to metadata if present in issue_template
+  if (updates.issue_template?.success_condition) {
+    const template = updates.issue_template;
+    updates.issue_template = {
+      ...template,
+      metadata: {
+        ...template.metadata,
+        success_condition: template.success_condition,
+      },
+    };
+    delete (updates.issue_template as any).success_condition;
+  }
 
   const { data, error } = await supabase
     .from('routines')

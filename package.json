@@ -17,8 +17,6 @@
     "db:generate-types": "npx supabase gen types typescript --project-id $SUPABASE_PROJECT_ID > packages/db/types.ts"
   },
   "devDependencies": {
-    "browserslist": "^4.28.1",
-    "caniuse-lite": "^1.0.30001781",
     "firecrawl-cli": "^1.12.2",
     "turbo": "^2.0.0",
     "typescript": "^5.4.0"
@@ -28,7 +26,6 @@
   },
   "packageManager": "npm@10.9.4",
   "dependencies": {
-    "@mendable/firecrawl-js": "^4.18.0",
-    "dotenv": "^17.3.1"
+    "@mendable/firecrawl-js": "^4.18.0"
   }
 }

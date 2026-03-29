@@ -12,15 +12,16 @@ interface IssueRow {
   description: string;
   status: string;
   priority: string;
+  type: string;
   assigned_to: string | null;
   created_at: string;
   company_id: string;
-  success_condition: string | null;
-  tokens_used: number | null;
-  quality_score: number | null;
+  estimated_tokens: number | null;
+  actual_tokens: number | null;
+  metadata: Record<string, unknown> | null;
 }
 
-const COLUMNS = ['open', 'in_progress', 'in_review', 'completed'] as const;
+const COLUMNS = ['open', 'in_progress', 'review', 'done'] as const;
 
 export default function IssuesPage() {
   const { companyId } = useActiveCompany();
@@ -151,31 +152,31 @@ export default function IssuesPage() {
                   {selectedIssue.description || 'No description'}
                 </p>
               </div>
-              {selectedIssue.success_condition && (
+              {selectedIssue.metadata?.success_condition && (
                 <div>
                   <label className="text-[10px] text-apex-muted font-mono uppercase tracking-widest">
                     Success Condition
                   </label>
                   <p className="text-sm text-apex-text font-sans mt-1">
-                    {selectedIssue.success_condition}
+                    {String(selectedIssue.metadata.success_condition)}
                   </p>
                 </div>
               )}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-[10px] text-apex-muted font-mono uppercase tracking-widest">
-                    Tokens Used
+                    Estimated Tokens
                   </label>
                   <p className="text-sm text-apex-text font-mono">
-                    {selectedIssue.tokens_used ?? 0}
+                    {selectedIssue.estimated_tokens?.toLocaleString() ?? '--'}
                   </p>
                 </div>
                 <div>
                   <label className="text-[10px] text-apex-muted font-mono uppercase tracking-widest">
-                    Quality Score
+                    Actual Tokens
                   </label>
                   <p className="text-sm text-apex-text font-mono">
-                    {selectedIssue.quality_score ?? '--'}/100
+                    {selectedIssue.actual_tokens?.toLocaleString() ?? '--'}
                   </p>
                 </div>
               </div>

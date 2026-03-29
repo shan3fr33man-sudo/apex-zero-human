@@ -42,10 +42,10 @@ export class TaskRouter {
     if (claimed) {
       log.info('Issue claimed', { agentId, issueId });
 
-      // Update agent status to working + set current issue
+      // Update agent status to working
       await this.supabase
         .from('agents')
-        .update({ status: 'working', current_issue_id: issueId })
+        .update({ status: 'working' })
         .eq('id', agentId);
     } else {
       log.debug('Issue claim failed (already taken)', { agentId, issueId });
@@ -97,11 +97,11 @@ export class TaskRouter {
       .eq('id', issueId)
       .single();
 
-    // Clear the agent's current_issue_id if they were working on this
+    // Reset agent to idle if they were working on this
     if (issue?.locked_by) {
       await this.supabase
         .from('agents')
-        .update({ status: 'idle', current_issue_id: null })
+        .update({ status: 'idle' })
         .eq('id', issue.locked_by);
     }
 
@@ -154,29 +154,31 @@ export class TaskRouter {
 
     const { data: issue } = await this.supabase
       .from('issues')
-      .select('locked_by, company_id, tokens_used')
+      .select('locked_by, company_id, actual_tokens')
       .eq('id', issueId)
       .single();
 
     if (!issue) return;
 
+    const now = new Date().toISOString();
+
     // Update issue status
     await this.supabase
       .from('issues')
       .update({
-        status: 'completed',
+        status: 'done',
         locked_by: null,
         locked_at: null,
-        quality_score: qualityScore ?? null,
+        completed_at: now,
+        metadata: qualityScore != null ? { quality_score: qualityScore } : undefined,
       })
       .eq('id', issueId);
 
     // Update agent stats
     if (issue.locked_by) {
-      // Increment tasks done, reset to idle
       const { data: agent } = await this.supabase
         .from('agents')
-        .select('total_tasks_done, total_tokens_used')
+        .select('issues_completed, tokens_used')
         .eq('id', issue.locked_by)
         .single();
 
@@ -185,9 +187,8 @@ export class TaskRouter {
           .from('agents')
           .update({
             status: 'idle',
-            current_issue_id: null,
-            total_tasks_done: (agent.total_tasks_done ?? 0) + 1,
-            total_tokens_used: (agent.total_tokens_used ?? 0) + (issue.tokens_used ?? 0),
+            issues_completed: (agent.issues_completed ?? 0) + 1,
+            tokens_used: (agent.tokens_used ?? 0) + (issue.actual_tokens ?? 0),
           })
           .eq('id', issue.locked_by);
       }

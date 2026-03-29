@@ -61,8 +61,8 @@ export async function POST(
   const template = routine.issue_template as {
     title: string;
     description: string;
-    success_condition: string;
-    priority: number;
+    success_condition?: string;
+    priority: 'critical' | 'high' | 'medium' | 'low';
     metadata?: Record<string, unknown>;
   } | null;
 
@@ -80,14 +80,14 @@ export async function POST(
       company_id,
       title: template.title,
       description: template.description,
-      success_condition: template.success_condition ?? null,
-      priority: template.priority ?? 50,
+      priority: template.priority ?? 'medium',
       metadata: {
         ...(template.metadata ?? {}),
         spawned_by_routine: routineId,
         routine_name: routine.name,
         manual_trigger: true,
         triggered_at: new Date().toISOString(),
+        ...(template.success_condition ? { success_condition: template.success_condition } : {}),
         ...(event_payload ? { event_payload } : {}),
       },
     })

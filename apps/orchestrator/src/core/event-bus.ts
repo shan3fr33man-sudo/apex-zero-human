@@ -85,14 +85,15 @@ export class EventBus {
    * Emit an event — inserts into the events table.
    * The table trigger will fire pg_notify, which this bus will receive.
    */
-  async emit(companyId: string, eventType: string, source: string, payload: Record<string, unknown>): Promise<string> {
+  async emit(companyId: string, eventType: string, sourceAgentId: string | null, payload: Record<string, unknown>): Promise<string> {
     const { data, error } = await this.supabase
       .from('events')
       .insert({
         company_id: companyId,
         event_type: eventType,
-        source,
+        source_agent_id: sourceAgentId,
         payload,
+        status: 'pending',
       })
       .select('id')
       .single();
@@ -102,7 +103,7 @@ export class EventBus {
       throw new Error(`Event emit failed: ${error.message}`);
     }
 
-    log.info('Event emitted', { eventId: data.id, companyId, eventType, source });
+    log.info('Event emitted', { eventId: data.id, companyId, eventType, sourceAgentId });
     return data.id;
   }
 
@@ -171,7 +172,7 @@ export class EventBus {
     // 3. Mark event as processed
     await this.supabase
       .from('events')
-      .update({ processed: true, processed_at: new Date().toISOString() })
+      .update({ status: 'processed', processed_at: new Date().toISOString() })
       .eq('id', event.id);
   }
 
@@ -191,8 +192,8 @@ export class EventBus {
         company_id: event.company_id,
         title: (template.title as string) ?? `Auto: ${event.event_type}`,
         description: (template.description as string) ?? JSON.stringify(event.payload),
-        success_condition: (template.success_condition as string) ?? null,
-        priority: (template.priority as number) ?? 50,
+        priority: (template.priority as string) ?? 'medium',
+        type: 'task',
         metadata: { triggered_by_event: event.id, routine_id: routine.id, event_payload: event.payload },
       })
       .select('id')
