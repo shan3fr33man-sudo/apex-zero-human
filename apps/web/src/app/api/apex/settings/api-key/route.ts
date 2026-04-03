@@ -3,7 +3,7 @@
  * DELETE /api/apex/settings/api-key — Remove Claude API key
  */
 import { NextResponse } from 'next/server';
-import { getSupabaseServiceRole } from '@/lib/supabase-server';
+import { getSupabaseServiceRole, getAuthenticatedUser } from '@/lib/supabase-server';
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 
 // ---- Inline encryption (same algo as orchestrator key-vault) ----
@@ -51,31 +51,30 @@ async function verifyClaudeKey(apiKey: string): Promise<boolean> {
 }
 
 // ---- Resolve tenant from auth user ----
-async function getTenantId(supabase: ReturnType<typeof getSupabaseServiceRole>, authId: string): Promise<string | null> {
-  const { data: user } = await supabase.from('users').select('id').eq('auth_id', authId).single();
-  if (!user) return null;
-  const { data: membership } = await supabase.from('memberships').select('org_id').eq('user_id', user.id).single();
+async function getTenantId(supabase: ReturnType<typeof getSupabaseServiceRole>, userId: string): Promise<string | null> {
+  const { data: membership } = await supabase.from('memberships').select('org_id').eq('user_id', userId).single();
   if (!membership) return null;
-  const { data: org } = await supabase.from('organizations').select('tenant_id').eq('id', membership.org_id).single();
+  const { data: org } = await supabase.from('organizations').select('tenant_id').eq('id', (membership as { org_id: string }).org_id).single();
   return org?.tenant_id ?? null;
 }
 
 // ---- POST: Save + verify key ----
 export async function POST(request: Request) {
   try {
+    const user = await getAuthenticatedUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+    }
+
     const { claude_api_key, openrouter_api_key } = await request.json();
     if (!claude_api_key) {
       return NextResponse.json({ error: 'Claude API key is required' }, { status: 400 });
     }
 
-    // Get auth user from cookie/header
+    // Get auth user from authentication
     const supabase = getSupabaseServiceRole();
-    const authHeader = request.headers.get('x-auth-id');
-    if (!authHeader) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-    }
 
-    const tenantId = await getTenantId(supabase, authHeader);
+    const tenantId = await getTenantId(supabase, user.id);
     if (!tenantId) {
       return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
     }
@@ -115,13 +114,14 @@ export async function POST(request: Request) {
 // ---- DELETE: Remove key ----
 export async function DELETE(request: Request) {
   try {
-    const supabase = getSupabaseServiceRole();
-    const authHeader = request.headers.get('x-auth-id');
-    if (!authHeader) {
+    const user = await getAuthenticatedUser();
+    if (!user) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
-    const tenantId = await getTenantId(supabase, authHeader);
+    const supabase = getSupabaseServiceRole();
+
+    const tenantId = await getTenantId(supabase, user.id);
     if (!tenantId) {
       return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
     }
@@ -157,13 +157,14 @@ export async function DELETE(request: Request) {
 // ---- GET: Key status ----
 export async function GET(request: Request) {
   try {
-    const supabase = getSupabaseServiceRole();
-    const authHeader = request.headers.get('x-auth-id');
-    if (!authHeader) {
+    const user = await getAuthenticatedUser();
+    if (!user) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
-    const tenantId = await getTenantId(supabase, authHeader);
+    const supabase = getSupabaseServiceRole();
+
+    const tenantId = await getTenantId(supabase, user.id);
     if (!tenantId) {
       return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
     }

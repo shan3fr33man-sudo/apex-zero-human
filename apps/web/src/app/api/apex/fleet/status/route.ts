@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseServiceRole } from '@/lib/supabase-server';
+import { getSupabaseServiceRole, getAuthenticatedUser, requireOwnership } from '@/lib/supabase-server';
 
 /**
  * GET /api/apex/fleet/status?company_id=xxx
@@ -7,11 +7,21 @@ import { getSupabaseServiceRole } from '@/lib/supabase-server';
  * Pulls from company config (resource data is stored in config.fleet).
  */
 export async function GET(req: NextRequest) {
+  const user = await getAuthenticatedUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const { searchParams } = new URL(req.url);
   const companyId = searchParams.get('company_id');
 
   if (!companyId) {
     return NextResponse.json({ error: 'company_id required' }, { status: 400 });
+  }
+
+  const authorized = await requireOwnership(user.id, companyId);
+  if (!authorized) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   const supabase = getSupabaseServiceRole();

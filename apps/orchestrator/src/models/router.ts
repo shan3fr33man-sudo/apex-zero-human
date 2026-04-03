@@ -3,7 +3,7 @@
  *
  * Routes LLM calls to the appropriate model based on agent tier:
  *   STRATEGIC → claude-sonnet-4-6 (CEO, Eval Engineer)
- *   TECHNICAL → claude-sonnet-4-5 (Engineer, QA, UX, Dispatch)
+ *   TECHNICAL → claude-sonnet-4-6 (Engineer, QA, UX, Dispatch)
  *   ROUTINE   → claude-haiku-4-5 (Content, Fleet, Review Requester)
  *
  * Implements retry with exponential backoff and automatic fallback
@@ -32,12 +32,12 @@ interface ModelConfig {
 const MODEL_ROUTING: Record<ModelTier, ModelConfig> = {
   STRATEGIC: {
     primary: 'claude-sonnet-4-6',
-    fallback: 'claude-sonnet-4-5-20241022',
+    fallback: 'claude-haiku-4-5-20251001',
     costPerInputToken: 0.000003,
     costPerOutputToken: 0.000015,
   },
   TECHNICAL: {
-    primary: 'claude-sonnet-4-5-20241022',
+    primary: 'claude-sonnet-4-6',
     fallback: 'claude-haiku-4-5-20251001',
     costPerInputToken: 0.000003,
     costPerOutputToken: 0.000015,

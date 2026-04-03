@@ -1,29 +1,35 @@
 import { NextResponse } from 'next/server';
-import { getSupabaseServiceRole } from '@/lib/supabase-server';
+import { getSupabaseServiceRole, getAuthenticatedUser } from '@/lib/supabase-server';
 
 /**
  * POST /api/auth/onboard
  * Creates a company and CEO agent for a newly signed-up user.
- * Uses service role to bypass RLS.
+ * User identity is extracted from the JWT cookie — never from the request body.
  */
 export async function POST(request: Request) {
   try {
-    const { authId, companyName, goal } = await request.json();
+    // Extract user from JWT — NOT from request body
+    const user = await getAuthenticatedUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+    }
 
-    if (!authId || !companyName) {
+    const { companyName, goal } = await request.json();
+
+    if (!companyName) {
       return NextResponse.json(
-        { error: 'Auth ID and company name are required' },
+        { error: 'Company name is required' },
         { status: 400 }
       );
     }
 
     const supabase = getSupabaseServiceRole();
 
-    // 1. Find the user record — users.id IS the auth UUID (set by handle_new_user trigger)
+    // 1. Find the user record — users.id IS the auth UUID
     const { data: userRecord, error: userError } = await supabase
       .from('users')
       .select('id')
-      .eq('id', authId)
+      .eq('id', user.id)
       .single();
 
     if (userError || !userRecord) {
@@ -34,44 +40,41 @@ export async function POST(request: Request) {
       );
     }
 
-    // 2. Find the user's organization (created during signup)
-    //    If missing (e.g. OAuth user), create one now
+    // 2. Find the user's organization (created during signup/callback)
+    //    If missing (e.g. race condition), create one now
     let orgId: string;
     const { data: membership, error: memberError } = await supabase
       .from('memberships')
       .select('org_id')
-      .eq('user_id', authId)
+      .eq('user_id', user.id)
       .single();
 
     if (memberError || !membership) {
-      console.log('[onboard] No membership found, creating org for OAuth user');
+      console.log('[onboard] No membership found, creating org');
 
-      // Get user email for org name
-      const { data: { user: authUser } } = await supabase.auth.admin.getUserById(authId);
-      const email = authUser?.email || 'user';
+      const email = user.email || 'user';
       const orgSlug = email.split('@')[0].toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-org';
 
       const { data: org, error: orgError } = await supabase
         .from('organizations')
         .insert({
           name: `${email.split('@')[0]}'s Organization`,
-          slug: orgSlug,
-          plan: 'free',
+          slug: `${orgSlug}-${Date.now()}`,
         })
-        .select()
+        .select('id')
         .single();
 
-      if (orgError) {
-        console.error('[onboard] Org creation error:', orgError.message);
+      if (orgError || !org) {
+        console.error('[onboard] Org creation error:', orgError?.message);
         return NextResponse.json(
-          { error: 'Failed to create organization: ' + orgError.message },
+          { error: 'Failed to create organization' },
           { status: 500 }
         );
       }
 
       // Create membership
       await supabase.from('memberships').insert({
-        user_id: authId,
+        user_id: user.id,
         org_id: org.id,
         role: 'owner',
       });

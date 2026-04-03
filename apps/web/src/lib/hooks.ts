@@ -11,15 +11,13 @@ export function useCompanies() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const supabase = createClient();
-    supabase
-      .from('companies')
-      .select('id, name, slug, description, status, settings, token_budget, tokens_used')
-      .order('created_at', { ascending: false })
-      .then(({ data }) => {
-        setCompanies(data ?? []);
+    fetch('/api/apex/companies')
+      .then(r => r.json())
+      .then(data => {
+        setCompanies(data.companies ?? data ?? []);
         setLoading(false);
-      });
+      })
+      .catch(() => setLoading(false));
   }, []);
 
   return { companies, loading };
@@ -47,7 +45,7 @@ export function useActiveCompany() {
 }
 
 /**
- * Hook: Supabase Realtime subscription on a table for a given company.
+ * Hook: Fetch initial data from API route, then subscribe to Supabase Realtime for live updates.
  */
 export function useRealtimeTable<T extends { id: string }>(
   table: string,
@@ -59,20 +57,25 @@ export function useRealtimeTable<T extends { id: string }>(
 
   useEffect(() => {
     if (!companyId) return;
+
     const supabase = createClient();
 
+    // Initial fetch from API route
     if (initialFetch) {
-      supabase
-        .from(table)
-        .select('*')
-        .eq('company_id', companyId)
-        .order('created_at', { ascending: false })
-        .then(({ data: rows }) => {
+      fetch(`/api/apex/${table}?company_id=${companyId}`)
+        .then(r => r.json())
+        .then(result => {
+          // API returns { [table]: [...], count } — extract the array
+          const rows = Array.isArray(result) ? result : (result[table] ?? result.data ?? Object.values(result).find(v => Array.isArray(v)) ?? []);
           setData((rows as T[]) ?? []);
           setLoading(false);
-        });
+        })
+        .catch(() => setLoading(false));
+    } else {
+      setLoading(false);
     }
 
+    // Subscribe to realtime updates
     const channel = supabase
       .channel(`${table}:${companyId}`)
       .on(

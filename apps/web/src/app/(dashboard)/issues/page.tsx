@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { useActiveCompany, useRealtimeTable } from '@/lib/hooks';
 import { IssueCard } from '@/components/IssueCard';
-import { createClient } from '@/lib/supabase/client';
 import { timeAgo } from '@/lib/utils';
 
 interface IssueRow {
@@ -39,17 +38,28 @@ export default function IssuesPage() {
   async function handleCreate() {
     if (!companyId || !newTitle.trim()) return;
     setCreating(true);
-    const supabase = createClient();
-    await supabase.from('issues').insert({
-      company_id: companyId,
-      title: newTitle,
-      description: newDesc,
-      priority: newPriority,
-      status: 'open',
-    });
-    setShowCreate(false);
-    setNewTitle('');
-    setNewDesc('');
+
+    try {
+      const res = await fetch('/api/apex/issues', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          company_id: companyId,
+          title: newTitle,
+          description: newDesc,
+          priority: newPriority,
+          status: 'open',
+        }),
+      });
+
+      if (res.ok) {
+        setShowCreate(false);
+        setNewTitle('');
+        setNewDesc('');
+      }
+    } catch (err) {
+      console.error('[issues] Create error:', err);
+    }
     setCreating(false);
   }
 

@@ -58,16 +58,21 @@ export class TaskRouter {
    * Find the next available issue for an agent based on their role.
    * Skips issues that are blocked by unfinished dependencies.
    * Returns the highest-priority unclaimed issue, or null if none available.
+   *
+   * QA agents also see 'in_review' issues (sent by non-QA agents for review).
    */
   async findNextIssue(agentRole: string, companyId: string): Promise<string | null> {
-    // Query for open, unblocked, unclaimed issues
-    // We filter out issues that have unresolved dependencies in application code
-    // because Supabase JS client doesn't support subquery NOT IN filters cleanly.
+    // QA agents can pick up both open and in_review issues.
+    // All other agents only see open issues.
+    const statuses = (agentRole === 'qa' || agentRole === 'qa_engineer')
+      ? ['open', 'in_review']
+      : ['open'];
+
     const { data: candidates } = await this.supabase
       .from('issues')
       .select('id, priority')
       .eq('company_id', companyId)
-      .eq('status', 'open')
+      .in('status', statuses)
       .is('locked_by', null)
       .order('priority', { ascending: false })
       .limit(20);
@@ -147,20 +152,28 @@ export class TaskRouter {
   }
 
   /**
-   * Complete an issue — mark as completed, release lock, update agent stats.
+   * Complete an issue — mark as done, release lock, update agent stats.
+   * Call this BEFORE releaseIssue() so locked_by is still set for stat tracking.
    */
   async completeIssue(issueId: string, qualityScore?: number): Promise<void> {
     log.info('Completing issue', { issueId, qualityScore });
 
     const { data: issue } = await this.supabase
       .from('issues')
-      .select('locked_by, company_id, actual_tokens')
+      .select('locked_by, company_id, actual_tokens, metadata')
       .eq('id', issueId)
       .single();
 
     if (!issue) return;
 
     const now = new Date().toISOString();
+
+    // Merge quality_score into existing metadata (don't overwrite)
+    const updatedMetadata = {
+      ...((issue.metadata as Record<string, unknown>) ?? {}),
+      ...(qualityScore != null ? { quality_score: qualityScore } : {}),
+      completed_at_iso: now,
+    };
 
     // Update issue status
     await this.supabase
@@ -170,7 +183,7 @@ export class TaskRouter {
         locked_by: null,
         locked_at: null,
         completed_at: now,
-        metadata: qualityScore != null ? { quality_score: qualityScore } : undefined,
+        metadata: updatedMetadata,
       })
       .eq('id', issueId);
 

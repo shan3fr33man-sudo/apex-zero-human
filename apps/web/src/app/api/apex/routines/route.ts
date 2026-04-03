@@ -9,7 +9,7 @@
  * All routes validate with Zod, enforce RLS via server Supabase client.
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseServiceRole } from '@/lib/supabase-server';
+import { getSupabaseServiceRole, getAuthenticatedUser, requireOwnership } from '@/lib/supabase-server';
 import { z } from 'zod';
 
 // ---- Zod Schemas ----
@@ -69,7 +69,11 @@ const DeleteRoutineSchema = z.object({
 // ---- GET — List routines ----
 
 export async function GET(request: NextRequest) {
-  const supabase = getSupabaseServiceRole();
+  const user = await getAuthenticatedUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const companyId = request.nextUrl.searchParams.get('company_id');
 
   if (!companyId) {
@@ -79,6 +83,12 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  const authorized = await requireOwnership(user.id, companyId);
+  if (!authorized) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const supabase = getSupabaseServiceRole();
   const routineType = request.nextUrl.searchParams.get('type');
   const enabledOnly = request.nextUrl.searchParams.get('enabled') === 'true';
 
@@ -110,7 +120,10 @@ export async function GET(request: NextRequest) {
 // ---- POST — Create routine ----
 
 export async function POST(request: NextRequest) {
-  const supabase = getSupabaseServiceRole();
+  const user = await getAuthenticatedUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
 
   let body: unknown;
   try {
@@ -131,6 +144,13 @@ export async function POST(request: NextRequest) {
   }
 
   const input = parsed.data;
+
+  const authorized = await requireOwnership(user.id, input.company_id);
+  if (!authorized) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const supabase = getSupabaseServiceRole();
 
   // Calculate initial next_run_at for SCHEDULED routines
   let nextRunAt: string | null = null;
@@ -181,7 +201,10 @@ export async function POST(request: NextRequest) {
 // ---- PATCH — Update routine ----
 
 export async function PATCH(request: NextRequest) {
-  const supabase = getSupabaseServiceRole();
+  const user = await getAuthenticatedUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
 
   let body: unknown;
   try {
@@ -202,6 +225,13 @@ export async function PATCH(request: NextRequest) {
   }
 
   const { id, company_id, ...updates } = parsed.data;
+
+  const authorized = await requireOwnership(user.id, company_id);
+  if (!authorized) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const supabase = getSupabaseServiceRole();
 
   // Move success_condition to metadata if present in issue_template
   if (updates.issue_template?.success_condition) {
@@ -244,7 +274,10 @@ export async function PATCH(request: NextRequest) {
 // ---- DELETE — Delete routine ----
 
 export async function DELETE(request: NextRequest) {
-  const supabase = getSupabaseServiceRole();
+  const user = await getAuthenticatedUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
 
   let body: unknown;
   try {
@@ -265,6 +298,13 @@ export async function DELETE(request: NextRequest) {
   }
 
   const { id, company_id } = parsed.data;
+
+  const authorized = await requireOwnership(user.id, company_id);
+  if (!authorized) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const supabase = getSupabaseServiceRole();
 
   const { error } = await supabase
     .from('routines')

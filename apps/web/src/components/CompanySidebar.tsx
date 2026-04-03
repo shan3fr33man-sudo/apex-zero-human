@@ -22,8 +22,9 @@ export function CompanySidebar() {
   const { companies, loading } = useCompanies();
   const { companyId, setCompanyId } = useActiveCompany();
 
-  // Auto-select first company if none selected
-  if (!companyId && companies.length > 0) {
+  // Auto-select first company if none selected or if stored company no longer exists
+  const storedCompanyExists = companies.some((c) => c.id === companyId);
+  if ((!companyId || (!storedCompanyExists && companies.length > 0)) && companies.length > 0) {
     setCompanyId(companies[0].id);
   }
 

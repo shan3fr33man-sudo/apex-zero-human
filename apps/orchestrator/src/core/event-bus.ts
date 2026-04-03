@@ -69,8 +69,9 @@ export class EventBus {
       this.pgClient.on('error', (err) => {
         log.error('Postgres client error', { error: err.message });
         this.connected = false;
-        // Attempt reconnection after 5 seconds
-        setTimeout(() => this.reconnect(), 5000);
+        // Delegate to reconnect() which handles its own backoff timing.
+        // Don't wrap in setTimeout here — reconnect() manages delays internally.
+        this.reconnect();
       });
 
     } catch (err) {
@@ -241,19 +242,48 @@ export class EventBus {
 
   /**
    * Reconnect after a connection drop.
+   * Uses exponential backoff with jitter and a max retry limit.
    */
+  private reconnectAttempts = 0;
+  private static readonly MAX_RECONNECT_ATTEMPTS = 10;
+
   private async reconnect(): Promise<void> {
-    log.info('Attempting to reconnect to Postgres...');
-    try {
-      if (this.pgClient) {
-        await this.pgClient.end().catch(() => {});
-      }
-      await this.start();
-    } catch (err) {
-      log.error('Reconnection failed, retrying in 10s', {
-        error: err instanceof Error ? err.message : String(err),
+    this.reconnectAttempts++;
+
+    if (this.reconnectAttempts > EventBus.MAX_RECONNECT_ATTEMPTS) {
+      log.error('Max reconnection attempts exceeded — event bus giving up. Process should be restarted.', {
+        attempts: this.reconnectAttempts,
       });
-      setTimeout(() => this.reconnect(), 10000);
+      // Don't process.exit() — let PM2 handle restarts via health check failure
+      return;
     }
+
+    // Exponential backoff: 5s, 10s, 20s, 40s... capped at 60s, plus jitter
+    const baseDelay = Math.min(5000 * Math.pow(2, this.reconnectAttempts - 1), 60000);
+    const jitter = Math.random() * 3000;
+    const delay = baseDelay + jitter;
+
+    log.info('Attempting to reconnect to Postgres...', {
+      attempt: this.reconnectAttempts,
+      maxAttempts: EventBus.MAX_RECONNECT_ATTEMPTS,
+      delayMs: Math.round(delay),
+    });
+
+    setTimeout(async () => {
+      try {
+        if (this.pgClient) {
+          await this.pgClient.end().catch(() => {});
+        }
+        await this.start();
+        this.reconnectAttempts = 0; // Reset on success
+        log.info('Reconnected to Postgres successfully');
+      } catch (err) {
+        log.error('Reconnection failed', {
+          attempt: this.reconnectAttempts,
+          error: err instanceof Error ? err.message : String(err),
+        });
+        await this.reconnect();
+      }
+    }, delay);
   }
 }

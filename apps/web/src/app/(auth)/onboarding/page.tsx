@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
 
 export default function OnboardingPage() {
   const [companyName, setCompanyName] = useState('');
@@ -17,23 +16,12 @@ export default function OnboardingPage() {
     setError(null);
 
     try {
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        setError('Not authenticated. Please sign up or log in.');
-        setLoading(false);
-        return;
-      }
-
       // Call server-side onboarding API
+      // Auth is handled server-side via JWT cookie — no authId in body
       const res = await fetch('/api/auth/onboard', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          authId: user.id,
           companyName,
           goal,
         }),

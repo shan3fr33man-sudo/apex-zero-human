@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseServiceRole } from '@/lib/supabase-server';
+import { getSupabaseServiceRole, getAuthenticatedUser, requireOwnership } from '@/lib/supabase-server';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -11,7 +11,18 @@ interface RouteContext {
  * active agents, and routine schedules.
  */
 export async function GET(_req: NextRequest, ctx: RouteContext) {
+  const user = await getAuthenticatedUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const { id: companyId } = await ctx.params;
+
+  const authorized = await requireOwnership(user.id, companyId);
+  if (!authorized) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
   const supabase = getSupabaseServiceRole();
 
   // Parallel fetches

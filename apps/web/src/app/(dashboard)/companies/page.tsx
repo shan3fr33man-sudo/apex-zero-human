@@ -2,8 +2,6 @@
 
 import { useState } from 'react';
 import { useCompanies, useActiveCompany } from '@/lib/hooks';
-import { createClient } from '@/lib/supabase/client';
-import { timeAgo, formatTokens } from '@/lib/utils';
 
 export default function CompaniesPage() {
   const { companies, loading } = useCompanies();
@@ -17,50 +15,33 @@ export default function CompaniesPage() {
     if (!newName.trim()) return;
     setCreating(true);
 
-    const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return;
+    try {
+      const res = await fetch('/api/apex/companies', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newName,
+          description: newGoal || null,
+        }),
+      });
 
-    // Get user's org membership to determine org_id
-    const { data: membership } = await supabase
-      .from('memberships')
-      .select('org_id')
-      .limit(1)
-      .single();
+      if (!res.ok) {
+        console.error('[companies] Create error: API returned', res.status);
+        setCreating(false);
+        return;
+      }
 
-    if (!membership) {
-      setCreating(false);
-      return;
-    }
-
-    const slug = newName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-
-    const { data: company, error: companyError } = await supabase
-      .from('companies')
-      .insert({
-        name: newName,
-        slug,
-        org_id: membership.org_id,
-        description: newGoal || null,
-        settings: {},
-      })
-      .select()
-      .single();
-
-    if (companyError) {
-      console.error('[companies] Create error:', companyError.message);
-      setCreating(false);
-      return;
-    }
-
-    if (company) {
-      setCompanyId(company.id);
-      setShowCreate(false);
-      setNewName('');
-      setNewGoal('');
-      window.location.reload();
+      const result = await res.json();
+      const company = result.company ?? result;
+      if (company && company.id) {
+        setCompanyId(company.id);
+        setShowCreate(false);
+        setNewName('');
+        setNewGoal('');
+        window.location.reload();
+      }
+    } catch (err) {
+      console.error('[companies] Create error:', err);
     }
     setCreating(false);
   }

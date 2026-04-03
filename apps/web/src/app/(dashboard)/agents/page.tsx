@@ -5,7 +5,6 @@ import { useActiveCompany, useRealtimeTable } from '@/lib/hooks';
 import { AgentStatusCard } from '@/components/AgentStatusCard';
 import { OrgChart } from '@/components/OrgChart';
 import { HeartbeatTimeline } from '@/components/HeartbeatTimeline';
-import { createClient } from '@/lib/supabase/client';
 
 interface AgentRow {
   id: string;
@@ -39,22 +38,33 @@ export default function AgentsPage() {
   async function handleHire() {
     if (!companyId || !hireRole.trim() || !hireName.trim()) return;
     setHiring(true);
-    const supabase = createClient();
-    await supabase.from('agents').insert({
-      company_id: companyId,
-      role: hireRole.toLowerCase().replace(/\s+/g, '-'),
-      name: hireName,
-      model: hireTier === 'STRATEGIC' ? 'claude-sonnet-4-6' : 'claude-sonnet-4-5',
-      slug: hireName.toLowerCase().replace(/\s+/g, '-'),
-      status: 'idle',
-      reports_to: hireReportsTo || null,
-      persona: `You are the ${hireRole} agent.`,
-      config: {},
-      heartbeat_checklist: {},
-    });
-    setShowHire(false);
-    setHireRole('');
-    setHireName('');
+
+    try {
+      const res = await fetch('/api/apex/agents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          company_id: companyId,
+          role: hireRole.toLowerCase().replace(/\s+/g, '-'),
+          name: hireName,
+          model: hireTier === 'STRATEGIC' ? 'claude-sonnet-4-6' : 'claude-sonnet-4-5',
+          slug: hireName.toLowerCase().replace(/\s+/g, '-'),
+          status: 'idle',
+          reports_to: hireReportsTo || null,
+          persona: `You are the ${hireRole} agent.`,
+          config: {},
+          heartbeat_checklist: {},
+        }),
+      });
+
+      if (res.ok) {
+        setShowHire(false);
+        setHireRole('');
+        setHireName('');
+      }
+    } catch (err) {
+      console.error('[agents] Hire error:', err);
+    }
     setHiring(false);
   }
 

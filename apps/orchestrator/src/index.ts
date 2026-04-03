@@ -2,7 +2,9 @@
  * APEX Orchestrator — PM2 Entry Point
  * Runs as a standalone Node.js process, separate from the Next.js frontend.
  * Connects to Supabase via SERVICE ROLE key (full database access).
+ * Exposes /health endpoint on ORCHESTRATOR_HEALTH_PORT (default 3001).
  */
+import http from 'node:http';
 import { Engine } from './core/engine.js';
 import { createLogger } from './lib/logger.js';
 
@@ -15,10 +17,34 @@ async function main(): Promise<void> {
   });
 
   const engine = new Engine();
+  const startedAt = new Date().toISOString();
+
+  // === Health Check HTTP Server ===
+  const healthPort = Number(process.env.ORCHESTRATOR_HEALTH_PORT) || 3001;
+  const healthServer = http.createServer((req, res) => {
+    if (req.url === '/health' && req.method === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        status: 'ok',
+        service: 'apex-orchestrator',
+        startedAt,
+        uptime: process.uptime(),
+        memoryMB: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+      }));
+    } else {
+      res.writeHead(404);
+      res.end();
+    }
+  });
+
+  healthServer.listen(healthPort, () => {
+    log.info('Health check server started', { port: healthPort });
+  });
 
   // Graceful shutdown handlers
   const shutdown = async (signal: string) => {
     log.info(`Received ${signal}, shutting down gracefully...`);
+    healthServer.close();
     await engine.stop();
     process.exit(0);
   };

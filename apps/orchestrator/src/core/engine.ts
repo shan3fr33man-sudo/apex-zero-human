@@ -298,6 +298,23 @@ export class Engine {
           .update({ actual_tokens: result.tokensUsed })
           .eq('id', issueId);
 
+        // Safety net: if base-agent failed to release the issue (e.g. post-handoff
+        // error was swallowed), ensure it's not stuck in in_progress.
+        // Don't call completeIssue() here — base-agent handles status transitions
+        // (in_review for QA flow, done for QA completion, open for handoffs).
+        const { data: issueCheck } = await this.supabase
+          .from('issues')
+          .select('status')
+          .eq('id', issueId)
+          .single();
+
+        if (issueCheck?.status === 'in_progress') {
+          log.warn('Issue still in_progress after successful agent execution — releasing as safety net', {
+            agentId, issueId,
+          });
+          await this.taskRouter.releaseIssue(issueId, 'open');
+        }
+
         // Record token spend
         await this.tokenGateway.recordUsage(companyId, agentId, issueId, {
           model: result.model,

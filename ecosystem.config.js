@@ -17,6 +17,7 @@ module.exports = {
       instances: 2,
       exec_mode: 'cluster',
       max_memory_restart: '1G',
+      min_uptime: '10s',
       restart_delay: 3000,
       max_restarts: 10,
       env: {
@@ -40,6 +41,7 @@ module.exports = {
       exec_mode: 'fork',
       watch: false,
       max_memory_restart: '2G',
+      min_uptime: '10s',
       restart_delay: 5000,
       max_restarts: 10,
       env: {
@@ -65,6 +67,7 @@ module.exports = {
       exec_mode: 'fork',
       watch: false,
       max_memory_restart: '1G',
+      min_uptime: '30s',
       restart_delay: 30000,
       max_restarts: 5,
       env: {

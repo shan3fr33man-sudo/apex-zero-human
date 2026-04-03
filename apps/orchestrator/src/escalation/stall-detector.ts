@@ -63,20 +63,39 @@ export class StallDetector {
 
   /**
    * Run a single stall check across all in-progress issues.
+   * Checks heartbeat progress — if an agent advanced heartbeat state recently,
+   * it's still working (not stalled), even if issue.updated_at is old.
    */
   async check(): Promise<void> {
-    // Find all in-progress issues that haven't been updated recently
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
 
+    // Check in_progress AND blocked issues (blocked issues can stall too)
     const { data: candidates } = await this.supabase
       .from('issues')
       .select('id, company_id, assigned_to, stall_threshold_minutes, title, updated_at')
-      .eq('status', 'in_progress')
+      .in('status', ['in_progress', 'blocked'])
       .lt('updated_at', fiveMinutesAgo);
 
     if (!candidates || candidates.length === 0) return;
 
     for (const issue of candidates as StalledIssue[]) {
+      // Skip unassigned issues — they should be picked up by the next tick,
+      // not escalated as if an agent is stalled
+      if (!issue.assigned_to) {
+        log.debug('Skipping unassigned issue in stall check', { issueId: issue.id });
+        continue;
+      }
+
+      // Check if heartbeat progressed recently — if so, agent is still working
+      const recentHeartbeat = await this.hasRecentHeartbeatProgress(issue.assigned_to, issue.id);
+      if (recentHeartbeat) {
+        log.debug('Agent has recent heartbeat progress, skipping stall check', {
+          issueId: issue.id,
+          agentId: issue.assigned_to,
+        });
+        continue;
+      }
+
       const stallThresholdMs = (issue.stall_threshold_minutes ?? 60) * 60 * 1000;
       const timeSinceUpdate = Date.now() - new Date(issue.updated_at).getTime();
 
@@ -88,6 +107,24 @@ export class StallDetector {
         await this.escalate(issue);
       }
     }
+  }
+
+  /**
+   * Check if an agent has advanced heartbeat state in the last 10 minutes.
+   * This prevents the stall detector from interfering with slow LLM calls.
+   */
+  private async hasRecentHeartbeatProgress(agentId: string, issueId: string): Promise<boolean> {
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+
+    const { data } = await this.supabase
+      .from('agent_heartbeats')
+      .select('id')
+      .eq('agent_id', agentId)
+      .eq('issue_id', issueId)
+      .gt('started_at', tenMinutesAgo)
+      .limit(1);
+
+    return (data?.length ?? 0) > 0;
   }
 
   /**

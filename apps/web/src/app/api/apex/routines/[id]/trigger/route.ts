@@ -7,7 +7,7 @@
  * regardless of schedule or event pattern.
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseServiceRole } from '@/lib/supabase-server';
+import { getSupabaseServiceRole, getAuthenticatedUser, requireOwnership } from '@/lib/supabase-server';
 import { z } from 'zod';
 
 const TriggerSchema = z.object({
@@ -20,8 +20,12 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const user = await getAuthenticatedUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const routineId = params.id;
-  const supabase = getSupabaseServiceRole();
 
   let body: unknown;
   try {
@@ -42,6 +46,13 @@ export async function POST(
   }
 
   const { company_id, event_payload } = parsed.data;
+
+  const authorized = await requireOwnership(user.id, company_id);
+  if (!authorized) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const supabase = getSupabaseServiceRole();
 
   // Fetch the routine
   const { data: routine, error: routineError } = await supabase

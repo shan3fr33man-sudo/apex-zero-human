@@ -195,9 +195,6 @@ export abstract class BaseAgent {
 
       const response = await this.modelRouter.call(llmRequest);
 
-      // Add the response as a progress comment on the issue
-      await this.addIssueComment(issue.id, agentId, response.content, 'progress');
-
       // Parse the handoff result from the response
       const handoff = this.parseHandoff(response.content);
 
@@ -205,23 +202,45 @@ export abstract class BaseAgent {
       await this.heartbeat.advance(agentId, issueId, 'HANDOFF_COMPLETE');
       await this.writeAuditLog(config, issue, 'HANDOFF_COMPLETE');
 
+      // AUDIT FIRST, then mutate — Prime Directive #5:
+      // "Never let an agent mutate external state without writing to audit_log first"
+      await this.writeAuditLog(config, issue, 'MUTATION_COMMENT', {
+        comment_type: 'progress',
+        content_length: response.content.length,
+      });
+      await this.addIssueComment(issue.id, agentId, response.content, 'progress');
+
       // Save learning memory if the agent produced one
       if (handoff.memoryToSave) {
+        await this.writeAuditLog(config, issue, 'MUTATION_MEMORY', {
+          memory_length: handoff.memoryToSave.length,
+        });
         await this.memory.storeLearning(agentId, config.company_id, handoff.memoryToSave);
       }
 
       // Complete the issue or pass to next agent
       if (handoff.targetAgentId) {
         // Hand off — set issue back to open for the target agent
+        await this.writeAuditLog(config, issue, 'MUTATION_HANDOFF', {
+          target_agent_id: handoff.targetAgentId,
+        });
         await this.addIssueComment(issue.id, agentId, handoff.summary, 'handoff');
         await this.taskRouter.releaseIssue(issue.id, 'open');
+      } else if (this.role === 'qa') {
+        // QA signs off — complete the issue (call BEFORE release so locked_by
+        // is still set and agent stats get incremented correctly)
+        await this.writeAuditLog(config, issue, 'MUTATION_COMPLETE', {
+          next_status: 'done',
+          quality_score: handoff.qualityScoreSelf,
+        });
+        await this.taskRouter.completeIssue(issue.id, handoff.qualityScoreSelf);
       } else {
-        // Done — mark as in_review (QA will pick it up) or completed
-        const nextStatus = this.role === 'qa' ? 'completed' : 'in_review';
-        await this.taskRouter.releaseIssue(issue.id, nextStatus);
-        if (nextStatus === 'completed') {
-          await this.taskRouter.completeIssue(issue.id, handoff.qualityScoreSelf);
-        }
+        // Non-QA agent done — send to in_review for QA to pick up
+        await this.writeAuditLog(config, issue, 'MUTATION_REVIEW', {
+          next_status: 'in_review',
+          quality_score: handoff.qualityScoreSelf,
+        });
+        await this.taskRouter.releaseIssue(issue.id, 'in_review');
       }
 
       log.info('Agent execution completed', {
@@ -479,7 +498,8 @@ ${entries}
 
   /**
    * Parse the handoff JSON from the agent's response.
-   * Looks for a JSON block in the response content.
+   * Supports both fenced JSON blocks (```json ... ```) and bare JSON.
+   * Uses bracket-balanced extraction instead of naive regex for robustness.
    */
   protected parseHandoff(content: string): HandoffResult {
     const defaults: HandoffResult = {
@@ -491,23 +511,85 @@ ${entries}
     };
 
     try {
-      // Look for JSON block in the response
-      const jsonMatch = content.match(/\{[\s\S]*?"target_agent_id"[\s\S]*?\}/);
-      if (!jsonMatch) return defaults;
+      // Strategy 1: Look for fenced ```json blocks first (most reliable)
+      const fencedMatch = content.match(/```json\s*\n?([\s\S]*?)\n?\s*```/);
+      if (fencedMatch?.[1]) {
+        const parsed = JSON.parse(fencedMatch[1].trim());
+        if (parsed && typeof parsed === 'object') {
+          return this.buildHandoffFromParsed(parsed, defaults);
+        }
+      }
 
-      const parsed = JSON.parse(jsonMatch[0]);
-      return {
-        targetAgentId: parsed.target_agent_id ?? null,
-        summary: parsed.summary ?? defaults.summary,
-        artifacts: Array.isArray(parsed.artifacts) ? parsed.artifacts : [],
-        qualityScoreSelf: typeof parsed.quality_score_self === 'number'
-          ? Math.min(100, Math.max(0, parsed.quality_score_self))
-          : 50,
-        memoryToSave: parsed.memory_to_save ?? null,
-      };
+      // Strategy 2: Find the last JSON object that contains a handoff key
+      // Use bracket-balanced extraction
+      const jsonStr = this.extractBalancedJson(content);
+      if (jsonStr) {
+        const parsed = JSON.parse(jsonStr);
+        if (parsed && typeof parsed === 'object') {
+          return this.buildHandoffFromParsed(parsed, defaults);
+        }
+      }
+
+      return defaults;
     } catch {
       return defaults;
     }
+  }
+
+  /**
+   * Extract a bracket-balanced JSON object from text.
+   * Finds the last { } block that is valid JSON.
+   */
+  private extractBalancedJson(text: string): string | null {
+    // Search backwards for the last complete JSON block
+    let lastValidJson: string | null = null;
+
+    for (let i = text.length - 1; i >= 0; i--) {
+      if (text[i] !== '}') continue;
+
+      // Find the matching opening brace
+      let depth = 0;
+      let start = -1;
+      for (let j = i; j >= 0; j--) {
+        if (text[j] === '}') depth++;
+        if (text[j] === '{') depth--;
+        if (depth === 0) {
+          start = j;
+          break;
+        }
+      }
+
+      if (start === -1) continue;
+
+      const candidate = text.substring(start, i + 1);
+      try {
+        JSON.parse(candidate);
+        lastValidJson = candidate;
+        break; // Take the last (outermost) valid JSON object
+      } catch {
+        continue;
+      }
+    }
+
+    return lastValidJson;
+  }
+
+  /**
+   * Build HandoffResult from a parsed JSON object with safe field extraction.
+   */
+  private buildHandoffFromParsed(
+    parsed: Record<string, unknown>,
+    defaults: HandoffResult
+  ): HandoffResult {
+    return {
+      targetAgentId: typeof parsed.target_agent_id === 'string' ? parsed.target_agent_id : null,
+      summary: typeof parsed.summary === 'string' ? parsed.summary : defaults.summary,
+      artifacts: Array.isArray(parsed.artifacts) ? parsed.artifacts : [],
+      qualityScoreSelf: typeof parsed.quality_score_self === 'number'
+        ? Math.min(100, Math.max(0, parsed.quality_score_self))
+        : 50,
+      memoryToSave: typeof parsed.memory_to_save === 'string' ? parsed.memory_to_save : null,
+    };
   }
 
   /** Max tokens for LLM response. Override in subclasses for different needs. */
