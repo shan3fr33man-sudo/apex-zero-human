@@ -1,54 +1,65 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
 
 /**
  * GET /auth/callback
  * Handles the OAuth redirect from Supabase (Google, GitHub, etc.)
  * Exchanges the auth code for a session, then ensures user + org + membership exist.
  *
+ * IMPORTANT: This route runs behind nginx reverse proxy. We must:
+ *   1. Use x-forwarded-host/proto to build the correct redirect URL (not request.url which gives localhost:3000)
+ *   2. Collect cookies and set them on the redirect response (not via cookieStore which conflicts with NextResponse.redirect)
+ *
  * Live DB schema (verified 2026-04-02):
  *   users:         id (= auth.users.id), email, full_name, avatar_url, github_username, created_at
  *   organizations: id, name, slug, plan (default 'free'), plan_status (default 'active'), stripe fields, token fields
  *   memberships:   id, org_id, user_id, role, created_at
- *   NOTE: users.id IS the Supabase Auth UUID directly — no separate auth_id column.
- *   NOTE: organizations has NO tenant_id — it's a flat table.
  */
 export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url);
-  const code = searchParams.get('code');
-  const next = searchParams.get('next') ?? '/dashboard';
+  const requestUrl = new URL(request.url);
+  const code = requestUrl.searchParams.get('code');
+  const next = requestUrl.searchParams.get('next') ?? '/dashboard';
 
-  console.log('[auth/callback] Starting callback, code present:', !!code);
+  // Build the correct origin from forwarded headers (behind nginx proxy)
+  const forwardedHost = request.headers.get('x-forwarded-host');
+  const forwardedProto = request.headers.get('x-forwarded-proto') ?? 'https';
+  const origin = forwardedHost
+    ? `${forwardedProto}://${forwardedHost}`
+    : requestUrl.origin;
+
+  console.log('[auth/callback] Starting callback, code present:', !!code, 'origin:', origin);
 
   if (!code) {
     return NextResponse.redirect(`${origin}/login?error=no_code`);
   }
 
   try {
-    // cookies() is async in Next.js 14+ — must be awaited
-    const cookieStore = await cookies();
+    // Collect cookies that supabase sets — we'll apply them to the redirect response
+    const cookiesToSet: { name: string; value: string; options?: Record<string, unknown> }[] = [];
 
-    // Create a Supabase client that can set cookies (for the session)
+    // Parse incoming cookies from request header
+    const cookieHeader = request.headers.get('cookie') ?? '';
+    const requestCookies: { name: string; value: string }[] = cookieHeader
+      .split(';')
+      .filter(Boolean)
+      .map((c) => {
+        const [name, ...rest] = c.trim().split('=');
+        return { name, value: rest.join('=') };
+      });
+
+    // Create a Supabase client that collects cookies (NOT using next/headers cookies())
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
           getAll() {
-            return cookieStore.getAll();
+            return requestCookies;
           },
-          setAll(cookiesToSet: { name: string; value: string; options?: Record<string, unknown> }[]) {
-            try {
-              cookiesToSet.forEach(({ name, value, options }) => {
-                cookieStore.set(name, value, options);
-              });
-            } catch (e) {
-              // Cookie set can fail in edge cases (response already sent).
-              // Session will still be established via the initial set.
-              console.error('[auth/callback] Cookie set error:', e);
-            }
+          setAll(cookies: { name: string; value: string; options?: Record<string, unknown> }[]) {
+            // Collect — don't try to set on cookieStore
+            cookiesToSet.push(...cookies);
           },
         },
       }
@@ -69,6 +80,8 @@ export async function GET(request: Request) {
     console.log('[auth/callback] Session established for:', authUser.email);
 
     // --- Post-auth: ensure user row, org, and membership exist ---
+    let redirectTo = next;
+
     try {
       const serviceClient = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -95,10 +108,9 @@ export async function GET(request: Request) {
 
         if (userError) {
           console.error('[auth/callback] Failed to create user row:', userError.message);
-          // Session is still valid — redirect and let them try again
-          return NextResponse.redirect(`${origin}/login?error=user_setup_failed`);
+        } else {
+          console.log('[auth/callback] Created user row:', authUser.id);
         }
-        console.log('[auth/callback] Created user row:', authUser.id);
       } else {
         console.log('[auth/callback] Existing user row found:', authUser.id);
       }
@@ -113,75 +125,85 @@ export async function GET(request: Request) {
 
       if (existingMembership) {
         console.log('[auth/callback] Existing membership found, redirecting to dashboard');
-        return NextResponse.redirect(`${origin}/dashboard`);
-      }
-
-      // Step 3: First-time user — check for orphaned orgs (orgs with zero members)
-      console.log('[auth/callback] No membership found, checking for orphaned orgs...');
-
-      const { data: orphanedOrgs } = await serviceClient.rpc('find_orphaned_orgs');
-
-      let orgId: string | null = null;
-
-      if (orphanedOrgs && orphanedOrgs.length > 0) {
-        orgId = orphanedOrgs[0].id;
-        console.log(`[auth/callback] Linking to orphaned org ${orgId}`);
+        redirectTo = '/dashboard';
       } else {
-        // Create a new organization for this user
-        // plan defaults to 'free', plan_status defaults to 'active' via DB defaults
-        const email = authUser.email || 'user';
-        const baseName = email.split('@')[0];
-        const slug = baseName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        // Step 3: First-time user — check for orphaned orgs
+        console.log('[auth/callback] No membership found, checking for orphaned orgs...');
 
-        const { data: org, error: orgError } = await serviceClient
-          .from('organizations')
-          .insert({
-            name: `${baseName}'s Organization`,
-            slug: `${slug}-org-${Date.now()}`, // unique slug via timestamp
-          })
-          .select('id')
-          .single();
+        const { data: orphanedOrgs } = await serviceClient.rpc('find_orphaned_orgs');
 
-        if (orgError || !org) {
-          console.error('[auth/callback] Failed to create organization:', orgError?.message);
-          return NextResponse.redirect(`${origin}/login?error=org_setup_failed`);
-        }
+        let orgId: string | null = null;
 
-        orgId = org.id;
-        console.log(`[auth/callback] Created org ${orgId}`);
-      }
-
-      // Step 4: Create membership linking user to org
-      if (orgId) {
-        const { error: membershipError } = await serviceClient
-          .from('memberships')
-          .insert({ user_id: authUser.id, org_id: orgId, role: 'owner' });
-
-        if (membershipError) {
-          console.error('[auth/callback] Failed to create membership:', membershipError.message);
+        if (orphanedOrgs && orphanedOrgs.length > 0) {
+          orgId = orphanedOrgs[0].id;
+          console.log(`[auth/callback] Linking to orphaned org ${orgId}`);
         } else {
-          console.log('[auth/callback] Membership created');
+          const email = authUser.email || 'user';
+          const baseName = email.split('@')[0];
+          const slug = baseName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+
+          const { data: org, error: orgError } = await serviceClient
+            .from('organizations')
+            .insert({
+              name: `${baseName}'s Organization`,
+              slug: `${slug}-org-${Date.now()}`,
+            })
+            .select('id')
+            .single();
+
+          if (orgError || !org) {
+            console.error('[auth/callback] Failed to create organization:', orgError?.message);
+          } else {
+            orgId = org.id;
+            console.log(`[auth/callback] Created org ${orgId}`);
+          }
         }
 
-        // Check if org already has companies — if so, go to dashboard
-        const { count } = await serviceClient
-          .from('companies')
-          .select('id', { count: 'exact', head: true })
-          .eq('org_id', orgId);
+        // Step 4: Create membership
+        if (orgId) {
+          const { error: membershipError } = await serviceClient
+            .from('memberships')
+            .insert({ user_id: authUser.id, org_id: orgId, role: 'owner' });
 
-        if (count && count > 0) {
-          return NextResponse.redirect(`${origin}/dashboard`);
+          if (membershipError) {
+            console.error('[auth/callback] Failed to create membership:', membershipError.message);
+          } else {
+            console.log('[auth/callback] Membership created');
+          }
+
+          // Check if org already has companies
+          const { count } = await serviceClient
+            .from('companies')
+            .select('id', { count: 'exact', head: true })
+            .eq('org_id', orgId);
+
+          redirectTo = count && count > 0 ? '/dashboard' : '/onboarding';
+        } else {
+          redirectTo = '/onboarding';
         }
       }
-
-      // No companies yet — send to onboarding
-      return NextResponse.redirect(`${origin}/onboarding`);
     } catch (err) {
       console.error('[auth/callback] Post-auth setup error:', err);
+      // Session is still valid — continue to redirect
     }
 
-    // Fallback — session is set, redirect to requested page
-    return NextResponse.redirect(`${origin}${next}`);
+    // Build redirect response and attach all collected cookies
+    const redirectUrl = `${origin}${redirectTo}`;
+    console.log('[auth/callback] Redirecting to:', redirectUrl);
+    const response = NextResponse.redirect(redirectUrl);
+
+    // Apply supabase session cookies to the redirect response
+    for (const { name, value, options } of cookiesToSet) {
+      response.cookies.set(name, value, {
+        ...options,
+        // Ensure cookies work over HTTPS
+        secure: forwardedProto === 'https',
+        sameSite: 'lax' as const,
+        path: '/',
+      });
+    }
+
+    return response;
   } catch (err) {
     console.error('[auth/callback] Fatal error:', err);
     return NextResponse.redirect(`${origin}/login?error=callback_error`);
