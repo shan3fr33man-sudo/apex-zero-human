@@ -145,7 +145,7 @@ export class CeoPlanner {
       .from('issues')
       .select('id, assigned_to')
       .eq('company_id', company.id)
-      .in('status', ['pending', 'open', 'in_progress']);
+      .in('status', ['open', 'in_progress', 'review', 'blocked']);
 
     const openByAgent = new Map<string, number>();
     (openIssues ?? []).forEach((i) => {
@@ -187,7 +187,7 @@ export class CeoPlanner {
           company_id: company.id,
           title: p.title.slice(0, 200),
           description: p.description.slice(0, 4000),
-          status: 'pending',
+          status: 'open',
           priority: 'medium',
           type: 'task',
           assigned_to: target.id,
@@ -210,18 +210,20 @@ export class CeoPlanner {
       inserted++;
 
       // Activity feed entry — plain English so users see the CEO working
+      const ceo = roster.find((a) => a.role === 'ceo');
       await this.supabase
         .from('audit_log')
         .insert({
           company_id: company.id,
-          actor_type: 'agent',
+          agent_id: ceo?.id ?? null,
           action: 'ceo_assigned_work',
-          target_type: 'issue',
-          target_id: issue.id,
-          metadata: {
+          entity_type: 'issue',
+          entity_id: issue.id,
+          after_state: {
             summary: `CEO assigned ${target.name} (${target.role}): ${p.title}`,
             for_goal: goal.slice(0, 200),
           },
+          reversible: false,
         })
         .then(
           () => undefined,
