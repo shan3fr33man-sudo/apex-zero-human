@@ -55,33 +55,53 @@ export class TaskRouter {
   }
 
   /**
-   * Find the next available issue for an agent based on their role.
+   * Find the next available issue for an agent.
+   * Preference order:
+   *   1. Issues already directly assigned to this agentId (assigned_to == agentId)
+   *   2. Unassigned issues whose metadata.target_role matches the agent's role
+   *   3. Unassigned issues with no target_role (untargeted backlog)
+   *
    * Skips issues that are blocked by unfinished dependencies.
-   * Returns the highest-priority unclaimed issue, or null if none available.
+   * The role-aware filter prevents the CEO from grabbing work the CEO planner
+   * earmarked for a specialist agent.
    */
-  async findNextIssue(agentRole: string, companyId: string): Promise<string | null> {
-    // Query for open, unblocked, unclaimed issues
-    // We filter out issues that have unresolved dependencies in application code
-    // because Supabase JS client doesn't support subquery NOT IN filters cleanly.
-    const { data: candidates } = await this.supabase
-      .from('issues')
-      .select('id, priority')
-      .eq('company_id', companyId)
-      .eq('status', 'open')
-      .is('locked_by', null)
-      .order('priority', { ascending: false })
-      .limit(20);
+  async findNextIssue(
+    agentRole: string,
+    companyId: string,
+    agentId?: string
+  ): Promise<string | null> {
+    const baseQuery = () =>
+      this.supabase
+        .from('issues')
+        .select('id, priority, assigned_to, metadata')
+        .eq('company_id', companyId)
+        .eq('status', 'open')
+        .is('locked_by', null)
+        .order('priority', { ascending: false })
+        .limit(20);
 
-    if (!candidates || candidates.length === 0) return null;
-
-    // Filter out issues with unresolved dependencies
-    for (const candidate of candidates) {
-      const isBlocked = await this.isBlocked(candidate.id);
-      if (!isBlocked) {
-        return candidate.id;
+    // Pass 1: issues directly assigned to this agent
+    if (agentId) {
+      const { data: directly } = await baseQuery().eq('assigned_to', agentId);
+      for (const c of directly ?? []) {
+        if (!(await this.isBlocked(c.id))) return c.id;
       }
     }
 
+    // Pass 2 & 3: unassigned issues — pick by target_role match, fall back to untargeted
+    const { data: unassigned } = await baseQuery().is('assigned_to', null);
+    if (!unassigned || unassigned.length === 0) return null;
+
+    const roleMatched = unassigned.filter(
+      (c) => (c.metadata as Record<string, unknown> | null)?.target_role === agentRole
+    );
+    const untargeted = unassigned.filter(
+      (c) => !(c.metadata as Record<string, unknown> | null)?.target_role
+    );
+
+    for (const c of [...roleMatched, ...untargeted]) {
+      if (!(await this.isBlocked(c.id))) return c.id;
+    }
     return null;
   }
 

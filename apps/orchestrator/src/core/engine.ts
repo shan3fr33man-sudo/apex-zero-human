@@ -165,7 +165,7 @@ export class Engine {
 
     for (const agent of idleAgents) {
       // Find the next available issue for this agent's role
-      const issueId = await this.taskRouter.findNextIssue(agent.role, companyId);
+      const issueId = await this.taskRouter.findNextIssue(agent.role, companyId, agent.id);
       if (!issueId) continue;
 
       // Attempt to claim it
