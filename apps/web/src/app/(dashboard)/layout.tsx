@@ -1,5 +1,6 @@
 import { CompanySidebar } from '@/components/CompanySidebar';
 import { RightPanel } from '@/components/RightPanel';
+import { HelpPanel } from '@/components/HelpPanel';
 
 export default function DashboardLayout({
   children,
@@ -14,8 +15,11 @@ export default function DashboardLayout({
       {/* CENTER: Main content (flex-1, scrollable) */}
       <main className="flex-1 overflow-auto">{children}</main>
 
-      {/* RIGHT: Inbox + APEX Advisor (320px fixed) */}
+      {/* RIGHT: CommandBar + Activity Feed (320px fixed) */}
       <RightPanel />
+
+      {/* Floating help button (bottom-right) */}
+      <HelpPanel />
     </div>
   );
 }
