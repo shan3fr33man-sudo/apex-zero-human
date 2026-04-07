@@ -49,7 +49,7 @@ export default function AgentsPage() {
           company_id: companyId,
           role: hireRole,
           name: hireName,
-          model: hireTier,
+          model_tier: hireTier,
           reports_to: hireReportsTo || null,
           persona: `You are the ${hireRole} agent.`,
         }),
