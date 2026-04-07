@@ -16,6 +16,46 @@ const TIER_TO_MODEL: Record<string, string> = {
   ROUTINE: 'claude-haiku-4-20250514',
 };
 
+// Must match the agents_role_check constraint in Postgres.
+const ALLOWED_ROLES = new Set([
+  'ceo',
+  'cto',
+  'coo',
+  'cfo',
+  'pm',
+  'founding_engineer',
+  'qa_engineer',
+  'eval_engineer',
+  'designer',
+  'marketer',
+  'sales',
+  'support',
+  'dispatch',
+  'fleet_manager',
+  'custom',
+]);
+
+function normalizeRole(input: string): string {
+  const slug = input
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_|_$/g, '');
+  if (ALLOWED_ROLES.has(slug)) return slug;
+  // Common aliases
+  if (/^(marketing|cmo|growth)/.test(slug)) return 'marketer';
+  if (/^(salesperson|account|biz_dev|bdr|sdr)/.test(slug)) return 'sales';
+  if (/^(customer|support|help|cx)/.test(slug)) return 'support';
+  if (/^(engineer|developer|dev|swe|founding)/.test(slug)) return 'founding_engineer';
+  if (/^(qa|quality|tester)/.test(slug)) return 'qa_engineer';
+  if (/^(product|pm|prd)/.test(slug)) return 'pm';
+  if (/^(designer|design|ux|ui)/.test(slug)) return 'designer';
+  if (/^(operations|ops|coo)/.test(slug)) return 'coo';
+  if (/^(finance|cfo|accounting)/.test(slug)) return 'cfo';
+  if (/^(tech|cto|architect)/.test(slug)) return 'cto';
+  return 'custom';
+}
+
 function slugify(s: string): string {
   return (
     (s || 'agent')
@@ -46,16 +86,17 @@ export async function POST(request: Request) {
   }
 
   const companyId = (body.company_id || '').trim();
-  const role = (body.role || '').trim().toLowerCase().replace(/\s+/g, '-').slice(0, 60);
+  const rawRole = (body.role || '').trim().slice(0, 60);
+  const role = normalizeRole(rawRole);
   const name = (body.name || '').trim().slice(0, 80);
   const reportsTo = body.reports_to || null;
-  const persona = (body.persona || `You are the ${role || 'agent'} agent.`).slice(0, 2000);
+  const persona = (body.persona || `You are the ${rawRole || role} agent.`).slice(0, 2000);
   const model =
     body.model ||
     (body.model_tier ? TIER_TO_MODEL[body.model_tier] : null) ||
     'claude-sonnet-4-20250514';
 
-  if (!companyId || !role || !name) {
+  if (!companyId || !rawRole || !name) {
     return NextResponse.json(
       { error: 'missing_fields', message: 'company_id, role, and name are required.' },
       { status: 400 }
