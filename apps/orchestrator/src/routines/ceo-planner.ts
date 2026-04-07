@@ -188,7 +188,7 @@ export class CeoPlanner {
           title: p.title.slice(0, 200),
           description: p.description.slice(0, 4000),
           status: 'pending',
-          priority: 3,
+          priority: 'medium',
           type: 'task',
           assigned_to: target.id,
           metadata: {
