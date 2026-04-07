@@ -143,7 +143,7 @@ export default function CompaniesPage() {
                     {company.name}
                   </h3>
                   <p className="text-xs text-apex-muted font-mono mt-1">
-                    {(company.config as Record<string, string>)?.vertical ?? 'custom'} vertical
+                    {(company.settings as Record<string, string>)?.vertical ?? 'custom'} vertical
                   </p>
                 </div>
                 <span className="text-[10px] font-mono text-apex-accent px-2 py-1 rounded bg-apex-accent/10">

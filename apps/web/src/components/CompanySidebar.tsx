@@ -5,16 +5,14 @@ import { usePathname } from 'next/navigation';
 import { useCompanies, useActiveCompany } from '@/lib/hooks';
 import { cn } from '@/lib/utils';
 
+// Note: /spend, /skills, /routines, /audit are temporarily hidden until their
+// underlying tables ship (token_logs, installed_skills, audit_log rename, etc.).
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Command Center', icon: '◈' },
   { href: '/companies', label: 'Companies', icon: '◆' },
   { href: '/agents', label: 'Agents', icon: '◎' },
   { href: '/issues', label: 'Issues', icon: '▦' },
   { href: '/inbox', label: 'Inbox', icon: '▤' },
-  { href: '/spend', label: 'Spend', icon: '◇' },
-  { href: '/skills', label: 'Skills', icon: '⬡' },
-  { href: '/routines', label: 'Routines', icon: '↻' },
-  { href: '/audit', label: 'Audit Log', icon: '▧' },
 ];
 
 export function CompanySidebar() {

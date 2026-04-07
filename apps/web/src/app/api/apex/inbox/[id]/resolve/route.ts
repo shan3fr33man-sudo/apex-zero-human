@@ -62,16 +62,26 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
   const companyId = (item as { company_id: string }).company_id;
 
   if (itemType === 'HIRE_APPROVAL' && resolution === 'approved' && payload) {
+    const name = (payload.name as string) ?? 'New Agent';
+    const slug =
+      name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '')
+        .slice(0, 40) +
+      '-' +
+      Date.now().toString(36);
     await supabase.from('agents').insert({
       company_id: companyId,
       role: (payload.role as string) ?? 'worker',
-      name: (payload.name as string) ?? 'New Agent',
-      model_tier: (payload.model_tier as string) ?? 'ROUTINE',
+      name,
+      slug,
+      model: (payload.model as string) ?? 'claude-sonnet-4-20250514',
       status: 'idle',
       reports_to: (payload.reports_to as string) ?? null,
       persona: (payload.persona as string) ?? '',
       config: {},
-      heartbeat_checklist: {},
+      heartbeat_checklist: [],
     });
   }
 

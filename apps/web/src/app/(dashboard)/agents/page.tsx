@@ -5,7 +5,6 @@ import { useActiveCompany, useRealtimeTable } from '@/lib/hooks';
 import { AgentStatusCard } from '@/components/AgentStatusCard';
 import { OrgChart } from '@/components/OrgChart';
 import { HeartbeatTimeline } from '@/components/HeartbeatTimeline';
-import { createClient } from '@/lib/supabase/client';
 
 interface AgentRow {
   id: string;
@@ -13,7 +12,7 @@ interface AgentRow {
   role: string;
   name: string;
   status: 'idle' | 'working' | 'paused' | 'stalled' | 'terminated';
-  model_tier: string;
+  model: string;
   reports_to: string | null;
   persona: string;
   avg_quality_score: number | null;
@@ -36,25 +35,38 @@ export default function AgentsPage() {
   const [hireTier, setHireTier] = useState('ROUTINE');
   const [hireReportsTo, setHireReportsTo] = useState('');
   const [hiring, setHiring] = useState(false);
+  const [hireError, setHireError] = useState<string | null>(null);
 
   async function handleHire() {
     if (!companyId || !hireRole.trim() || !hireName.trim()) return;
     setHiring(true);
-    const supabase = createClient();
-    await supabase.from('agents').insert({
-      company_id: companyId,
-      role: hireRole.toLowerCase().replace(/\s+/g, '-'),
-      name: hireName,
-      model_tier: hireTier,
-      status: 'idle',
-      reports_to: hireReportsTo || null,
-      persona: `You are the ${hireRole} agent.`,
-      config: {},
-      heartbeat_checklist: {},
-    });
-    setShowHire(false);
-    setHireRole('');
-    setHireName('');
+    setHireError(null);
+    try {
+      const res = await fetch('/api/apex/agents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          company_id: companyId,
+          role: hireRole,
+          name: hireName,
+          model: hireTier,
+          reports_to: hireReportsTo || null,
+          persona: `You are the ${hireRole} agent.`,
+        }),
+      });
+      const data = (await res.json()) as { ok?: boolean; message?: string };
+      if (!res.ok || !data.ok) {
+        setHireError(data.message || 'Could not hire that agent. Please try again.');
+        setHiring(false);
+        return;
+      }
+      setShowHire(false);
+      setHireRole('');
+      setHireName('');
+    } catch (err) {
+      console.error('[agents] hire failed:', err);
+      setHireError('Network error. Please try again.');
+    }
     setHiring(false);
   }
 
@@ -144,7 +156,7 @@ export default function AgentsPage() {
                   Model Tier
                 </label>
                 <p className="text-sm text-apex-text font-mono">
-                  {selectedAgent.model_tier}
+                  {selectedAgent.model}
                 </p>
               </div>
 
@@ -242,6 +254,11 @@ export default function AgentsPage() {
                   ))}
                 </select>
               </div>
+              {hireError && (
+                <div className="text-xs font-sans text-red-400 bg-red-500/10 border border-red-500/30 rounded p-2">
+                  {hireError}
+                </div>
+              )}
               <div className="flex gap-2">
                 <button
                   onClick={handleHire}

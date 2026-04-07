@@ -17,17 +17,17 @@ export async function GET(_req: NextRequest, ctx: RouteContext) {
   // Fetch agent
   const { data: agent, error: agentErr } = await supabase
     .from('agents')
-    .select('id, role, name, persona, config, heartbeat_checklist, model_tier, company_id')
+    .select('id, role, name, persona, config, heartbeat_checklist, model, company_id')
     .eq('id', id)
     .single();
 
   if (agentErr || !agent)
     return NextResponse.json({ error: 'Agent not found' }, { status: 404 });
 
-  // Fetch company config
+  // Fetch company settings
   const { data: company } = await supabase
     .from('companies')
-    .select('name, config')
+    .select('name, settings')
     .eq('id', agent.company_id)
     .single();
 
@@ -39,12 +39,12 @@ export async function GET(_req: NextRequest, ctx: RouteContext) {
       persona: agent.persona,
       config: agent.config,
       heartbeat_checklist: agent.heartbeat_checklist,
-      model_tier: agent.model_tier,
+      model: agent.model,
     },
     company: {
       id: agent.company_id,
       name: company?.name ?? 'Unknown',
-      config: company?.config ?? {},
+      config: company?.settings ?? {},
     },
   });
 }

@@ -7,16 +7,19 @@ import { createClient } from '@/lib/supabase/client';
  * Hook: get the current authenticated user's company list.
  */
 export function useCompanies() {
-  const [companies, setCompanies] = useState<Array<{ id: string; name: string; config: Record<string, unknown> }>>([]);
+  const [companies, setCompanies] = useState<
+    Array<{ id: string; name: string; slug: string; settings: Record<string, unknown>; status: string }>
+  >([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const supabase = createClient();
     supabase
       .from('companies')
-      .select('id, name, config')
+      .select('id, name, slug, settings, status, token_budget, tokens_used, created_at')
       .order('created_at', { ascending: false })
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        if (error) console.error('[useCompanies] query failed:', error.message);
         setCompanies(data ?? []);
         setLoading(false);
       });
