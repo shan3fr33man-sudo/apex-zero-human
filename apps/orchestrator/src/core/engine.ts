@@ -23,6 +23,8 @@ import { VectorStore } from '../memory/vector-store.js';
 import { Scheduler } from '../routines/scheduler.js';
 import { Reactor } from '../routines/reactor.js';
 import { CeoPlanner } from '../routines/ceo-planner.js';
+import { createAgent } from '../agents/registry.js';
+import type { AgentConfig, Issue } from '../agents/types.js';
 
 const log = createLogger('Engine');
 
@@ -154,21 +156,32 @@ export class Engine {
    * Process one company: assign work to idle agents.
    */
   private async processCompany(companyId: string): Promise<void> {
+    // Load company context once for AgentConfig
+    const { data: company } = await this.supabase
+      .from('companies')
+      .select('id, name, settings')
+      .eq('id', companyId)
+      .single();
+
+    const companyName = (company?.name as string) ?? '';
+    const companyGoal =
+      ((company?.settings ?? {}) as Record<string, unknown>).goal as string | undefined ?? '';
+
     // Find idle agents for this company
     const { data: idleAgents } = await this.supabase
       .from('agents')
-      .select('id, role')
+      .select('id, role, name, persona, model, reports_to, config')
       .eq('company_id', companyId)
       .eq('status', 'idle');
 
     if (!idleAgents || idleAgents.length === 0) return;
 
+    const executions: Promise<void>[] = [];
+
     for (const agent of idleAgents) {
-      // Find the next available issue for this agent's role
       const issueId = await this.taskRouter.findNextIssue(agent.role, companyId, agent.id);
       if (!issueId) continue;
 
-      // Attempt to claim it
       const claimed = await this.taskRouter.claimIssue(agent.id, issueId);
       if (!claimed) continue;
 
@@ -179,9 +192,68 @@ export class Engine {
         companyId,
       });
 
-      // The agent execution loop (heartbeat → work → handoff) will be
-      // implemented in Phase 3 when we build the Base Agent class.
-      // For now, the claim is recorded and the agent status is set to 'working'.
+      const baseAgent = createAgent(agent.role, {
+        tokenGateway: this.tokenGateway,
+        heartbeat: this.heartbeat,
+        taskRouter: this.taskRouter,
+        modelRouter: this.modelRouter,
+        memory: this.memory,
+      });
+      if (!baseAgent) {
+        log.warn('No agent class registered for role', { role: agent.role, agentId: agent.id });
+        continue;
+      }
+
+      // Load full issue row
+      const { data: issueRow } = await this.supabase
+        .from('issues')
+        .select('*')
+        .eq('id', issueId)
+        .single();
+      if (!issueRow) continue;
+
+      const cfg = (agent as { config?: Record<string, unknown> }).config ?? {};
+      const agentConfig: AgentConfig = {
+        id: agent.id,
+        company_id: companyId,
+        company_name: companyName,
+        company_goal: companyGoal,
+        name: (agent as { name: string }).name,
+        role: agent.role,
+        persona: (agent as { persona: string | null }).persona ?? null,
+        model_tier: (((cfg.model_tier as string) ?? 'TECHNICAL') as AgentConfig['model_tier']),
+        reports_to: (agent as { reports_to: string | null }).reports_to ?? null,
+        reports_to_name: (cfg.reports_to_name as string) ?? null,
+        reports_to_role: (cfg.reports_to_role as string) ?? null,
+        custom_rules: (cfg.custom_rules as string[]) ?? [],
+        installed_skills: (cfg.installed_skills as string[]) ?? [],
+        brand_guide: (cfg.brand_guide as string) ?? null,
+      };
+
+      // Fire-and-forget per-agent execution; failures don't block siblings
+      executions.push(
+        baseAgent
+          .execute(agentConfig, issueRow as Issue)
+          .then((result) => {
+            log.info('Agent execution finished', {
+              agentId: agent.id,
+              issueId,
+              success: result.success,
+              tokens: result.tokensUsed,
+            });
+          })
+          .catch((err) => {
+            log.error('Agent execution threw', {
+              agentId: agent.id,
+              issueId,
+              error: err instanceof Error ? err.message : String(err),
+            });
+          })
+      );
+    }
+
+    if (executions.length > 0) {
+      await Promise.all(executions);
     }
   }
 
