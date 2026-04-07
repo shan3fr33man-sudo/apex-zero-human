@@ -22,6 +22,7 @@ import { ApexMemorySystem } from '../memory/ams.js';
 import { VectorStore } from '../memory/vector-store.js';
 import { Scheduler } from '../routines/scheduler.js';
 import { Reactor } from '../routines/reactor.js';
+import { CeoPlanner } from '../routines/ceo-planner.js';
 
 const log = createLogger('Engine');
 
@@ -39,6 +40,7 @@ export class Engine {
   readonly memory: ApexMemorySystem;
   readonly scheduler: Scheduler;
   readonly reactor: Reactor;
+  readonly ceoPlanner: CeoPlanner;
 
   private running = false;
   private tickHandle: ReturnType<typeof setInterval> | null = null;
@@ -55,6 +57,7 @@ export class Engine {
     this.memory = new ApexMemorySystem(new VectorStore());
     this.scheduler = new Scheduler();
     this.reactor = new Reactor(this.eventBus);
+    this.ceoPlanner = new CeoPlanner();
 
     log.info('Engine initialized — all modules loaded');
   }
@@ -89,7 +92,8 @@ export class Engine {
     // Start routines engine (scheduler + reactor)
     this.scheduler.start();
     this.reactor.start();
-    log.info('Routines engine started (scheduler + reactor)');
+    this.ceoPlanner.start();
+    log.info('Routines engine started (scheduler + reactor + ceoPlanner)');
 
     // Start main tick loop
     const tickMs = Number(process.env.ORCHESTRATOR_TICK_MS) || 5000;
@@ -122,6 +126,7 @@ export class Engine {
 
     this.scheduler.stop();
     this.reactor.stop();
+    this.ceoPlanner.stop();
     this.autoScaler.stop();
     this.stallDetector.stop();
     await this.eventBus.stop();
