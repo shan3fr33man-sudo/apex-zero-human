@@ -2,8 +2,6 @@
 
 import { useState } from 'react';
 import { useCompanies, useActiveCompany } from '@/lib/hooks';
-import { createClient } from '@/lib/supabase/client';
-import { timeAgo, formatTokens } from '@/lib/utils';
 
 export default function CompaniesPage() {
   const { companies, loading } = useCompanies();
@@ -12,45 +10,33 @@ export default function CompaniesPage() {
   const [newName, setNewName] = useState('');
   const [newGoal, setNewGoal] = useState('');
   const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   async function handleCreate() {
     if (!newName.trim()) return;
     setCreating(true);
+    setCreateError(null);
 
-    const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const { data: company } = await supabase
-      .from('companies')
-      .insert({
-        name: newName,
-        owner_id: user.id,
-        config: { goal: newGoal, vertical: 'custom' },
-      })
-      .select()
-      .single();
-
-    if (company) {
-      // Auto-spawn CEO
-      await supabase.from('agents').insert({
-        company_id: company.id,
-        role: 'ceo',
-        name: 'CEO',
-        model_tier: 'STRATEGIC',
-        status: 'idle',
-        persona: `You are the CEO of ${newName}. Goal: ${newGoal}`,
-        config: {},
-        heartbeat_checklist: {},
+    try {
+      const res = await fetch('/api/apex/companies', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newName, goal: newGoal }),
       });
-
-      setCompanyId(company.id);
+      const data = (await res.json()) as { ok?: boolean; company?: { id: string }; message?: string };
+      if (!res.ok || !data.ok || !data.company) {
+        setCreateError(data.message || 'Could not create your company. Please try again.');
+        setCreating(false);
+        return;
+      }
+      setCompanyId(data.company.id);
       setShowCreate(false);
       setNewName('');
       setNewGoal('');
       window.location.reload();
+    } catch (err) {
+      console.error('[companies] create failed:', err);
+      setCreateError('Network error. Please try again.');
     }
     setCreating(false);
   }
@@ -101,6 +87,11 @@ export default function CompaniesPage() {
                   placeholder="What should your AI agents focus on?"
                 />
               </div>
+              {createError && (
+                <div className="text-xs font-sans text-red-400 bg-red-500/10 border border-red-500/30 rounded p-2">
+                  {createError}
+                </div>
+              )}
               <div className="flex gap-2">
                 <button
                   onClick={handleCreate}
