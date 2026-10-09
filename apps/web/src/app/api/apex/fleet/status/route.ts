@@ -1,17 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseServiceRole } from '@/lib/supabase-server';
+import { getSupabaseServiceRole, getAuthenticatedUser, requireOwnership } from '@/lib/supabase-server';
 
 /**
  * GET /api/apex/fleet/status?company_id=xxx
- * Returns fleet status for a company — vehicles, drivers, availability.
- * Pulls from company config (fleet data is stored in config.fleet).
+ * Returns resource status for a company — assets, teams, availability.
+ * Pulls from company config (resource data is stored in config.fleet).
  */
 export async function GET(req: NextRequest) {
+  const user = await getAuthenticatedUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const { searchParams } = new URL(req.url);
   const companyId = searchParams.get('company_id');
 
   if (!companyId) {
     return NextResponse.json({ error: 'company_id required' }, { status: 400 });
+  }
+
+  const authorized = await requireOwnership(user.id, companyId);
+  if (!authorized) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   const supabase = getSupabaseServiceRole();
@@ -31,9 +41,9 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     company_id: companyId,
-    fleet,
+    resources: fleet,
     summary: {
-      total_vehicles: fleet.length,
+      total_resources: fleet.length,
       available: fleet.filter(
         (v) => v.status === 'available'
       ).length,

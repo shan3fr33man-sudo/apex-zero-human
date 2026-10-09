@@ -59,15 +59,15 @@ const SEED_TEMPLATES: MarketplaceTemplate[] = [
     preview_agents: ['CEO', 'Researcher', 'Analyst', 'Writer', 'QA'],
   },
   {
-    id: 'tpl-moving',
-    title: 'Moving Company',
-    description: 'Full moving company operations: dispatch, lead recovery, quoting, compliance (WA UTC 15-C), fleet coordination, and reviews. Battle-tested vertical.',
+    id: 'tpl-operations',
+    title: 'Operations Company',
+    description: 'Full field operations: task assignment, lead recovery, quoting, compliance rules enforcement, asset coordination, and reviews. Battle-tested vertical.',
     category: 'Services',
     author: 'APEX Team',
     price_usd: 0,
     download_count: 0,
     rating: 5.0,
-    preview_agents: ['CEO', 'Dispatch', 'Lead Recovery', 'Quote', 'Compliance', 'Fleet Coordinator'],
+    preview_agents: ['CEO', 'Task Scheduler', 'Lead Recovery', 'Quote', 'Compliance', 'Asset Coordinator'],
   },
 ];
 

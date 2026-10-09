@@ -19,6 +19,13 @@ vi.mock('@anthropic-ai/sdk', () => ({
   })),
 }));
 
+vi.mock('../../lib/key-vault.js', () => ({
+  getDecryptedKeyForCompany: vi.fn().mockResolvedValue(null),
+  BYOKRequiredError: class BYOKRequiredError extends Error {
+    constructor(msg: string) { super(msg); this.name = 'BYOKRequiredError'; }
+  },
+}));
+
 import { ModelRouter } from '../router.js';
 import { TokenGateway } from '../../core/token-gateway.js';
 

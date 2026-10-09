@@ -19,11 +19,13 @@ const NAV_ITEMS = [
 
 export function CompanySidebar() {
   const pathname = usePathname();
-  const { companies, loading } = useCompanies();
+  const { companies: rawCompanies, loading } = useCompanies();
+  const companies = Array.isArray(rawCompanies) ? rawCompanies : [];
   const { companyId, setCompanyId } = useActiveCompany();
 
-  // Auto-select first company if none selected
-  if (!companyId && companies.length > 0) {
+  // Auto-select first company if none selected or if stored company no longer exists
+  const storedCompanyExists = companies.some((c) => c.id === companyId);
+  if ((!companyId || (!storedCompanyExists && companies.length > 0)) && companies.length > 0) {
     setCompanyId(companies[0].id);
   }
 

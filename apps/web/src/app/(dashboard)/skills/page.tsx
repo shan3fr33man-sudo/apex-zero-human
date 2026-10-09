@@ -42,7 +42,7 @@ export default function SkillsPage() {
     if (!companyId) return;
     const supabase = createClient();
     supabase
-      .from('installed_skills')
+      .from('skills')
       .select('*')
       .eq('company_id', companyId)
       .then(({ data }) => {

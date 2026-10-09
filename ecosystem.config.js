@@ -17,6 +17,7 @@ module.exports = {
       instances: 2,
       exec_mode: 'cluster',
       max_memory_restart: '1G',
+      min_uptime: '10s',
       restart_delay: 3000,
       max_restarts: 10,
       env: {
@@ -35,10 +36,12 @@ module.exports = {
       name: 'apex-orchestrator',
       cwd: './apps/orchestrator',
       script: 'dist/index.js',
+      node_args: '-r dotenv/config',
       instances: 1,
       exec_mode: 'fork',
       watch: false,
       max_memory_restart: '2G',
+      min_uptime: '10s',
       restart_delay: 5000,
       max_restarts: 10,
       env: {
@@ -59,10 +62,12 @@ module.exports = {
       name: 'apex-see',
       cwd: './apps/orchestrator',
       script: 'dist/see/index.js',
+      node_args: '-r dotenv/config',
       instances: 1,
       exec_mode: 'fork',
       watch: false,
       max_memory_restart: '1G',
+      min_uptime: '30s',
       restart_delay: 30000,
       max_restarts: 5,
       env: {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseServiceRole } from '@/lib/supabase-server';
+import { getSupabaseServiceRole, getAuthenticatedUser, requireOwnership } from '@/lib/supabase-server';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -7,17 +7,31 @@ interface RouteContext {
 
 /**
  * POST /api/apex/inbox/[id]/resolve
- * Body: { resolution: 'approved' | 'rejected', reason?: string }
+ * Body: { resolution: 'approved' | 'rejected', company_id: string, reason?: string }
  */
 export async function POST(req: NextRequest, ctx: RouteContext) {
+  const user = await getAuthenticatedUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const { id } = await ctx.params;
-  const { resolution, reason } = await req.json();
+  const { resolution, company_id, reason } = await req.json();
 
   if (!resolution || !['approved', 'rejected'].includes(resolution)) {
     return NextResponse.json(
       { error: 'resolution must be "approved" or "rejected"' },
       { status: 400 }
     );
+  }
+
+  if (!company_id) {
+    return NextResponse.json({ error: 'company_id required' }, { status: 400 });
+  }
+
+  const authorized = await requireOwnership(user.id, company_id);
+  if (!authorized) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   const supabase = getSupabaseServiceRole();

@@ -18,7 +18,9 @@ export default function InboxPage() {
   const { companyId } = useActiveCompany();
   const { data: items, loading, setData } = useRealtimeTable<InboxRow>(
     'inbox_items',
-    companyId
+    companyId,
+    true,
+    'inbox',
   );
 
   async function handleResolve(id: string, resolution: 'approved' | 'rejected') {

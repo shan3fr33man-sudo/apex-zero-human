@@ -5,21 +5,19 @@ import { useActiveCompany, useRealtimeTable } from '@/lib/hooks';
 import { AgentStatusCard } from '@/components/AgentStatusCard';
 import { OrgChart } from '@/components/OrgChart';
 import { HeartbeatTimeline } from '@/components/HeartbeatTimeline';
-import { createClient } from '@/lib/supabase/client';
 
 interface AgentRow {
   id: string;
   company_id: string;
   role: string;
   name: string;
+  slug: string;
   status: 'idle' | 'working' | 'paused' | 'stalled' | 'terminated';
-  model_tier: string;
+  model: string;
   reports_to: string | null;
   persona: string;
-  avg_quality_score: number | null;
-  total_tokens_used: number | null;
-  total_tasks_done: number | null;
-  current_issue_id: string | null;
+  tokens_used: number | null;
+  issues_completed: number | null;
   config: Record<string, unknown>;
 }
 
@@ -40,21 +38,33 @@ export default function AgentsPage() {
   async function handleHire() {
     if (!companyId || !hireRole.trim() || !hireName.trim()) return;
     setHiring(true);
-    const supabase = createClient();
-    await supabase.from('agents').insert({
-      company_id: companyId,
-      role: hireRole.toLowerCase().replace(/\s+/g, '-'),
-      name: hireName,
-      model_tier: hireTier,
-      status: 'idle',
-      reports_to: hireReportsTo || null,
-      persona: `You are the ${hireRole} agent.`,
-      config: {},
-      heartbeat_checklist: {},
-    });
-    setShowHire(false);
-    setHireRole('');
-    setHireName('');
+
+    try {
+      const res = await fetch('/api/apex/agents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          company_id: companyId,
+          role: hireRole.toLowerCase().replace(/\s+/g, '-'),
+          name: hireName,
+          model: hireTier === 'STRATEGIC' ? 'claude-sonnet-4-6' : 'claude-sonnet-4-5',
+          slug: hireName.toLowerCase().replace(/\s+/g, '-'),
+          status: 'idle',
+          reports_to: hireReportsTo || null,
+          persona: `You are the ${hireRole} agent.`,
+          config: {},
+          heartbeat_checklist: {},
+        }),
+      });
+
+      if (res.ok) {
+        setShowHire(false);
+        setHireRole('');
+        setHireName('');
+      }
+    } catch (err) {
+      console.error('[agents] Hire error:', err);
+    }
     setHiring(false);
   }
 
@@ -144,7 +154,7 @@ export default function AgentsPage() {
                   Model Tier
                 </label>
                 <p className="text-sm text-apex-text font-mono">
-                  {selectedAgent.model_tier}
+                  {selectedAgent.model}
                 </p>
               </div>
 

@@ -74,7 +74,8 @@ export class TokenGateway {
       model: usage.model,
       input_tokens: usage.inputTokens,
       output_tokens: usage.outputTokens,
-      cost_usd: usage.costUsd ?? null,
+      total_tokens: usage.inputTokens + usage.outputTokens,
+      estimated_cost: usage.costUsd ?? null,
     });
 
     if (error) {
@@ -127,79 +128,126 @@ export class TokenGateway {
   }
 
   /**
-   * Check per-agent budget ceiling before LLM call.
-   * Sends 80% soft warning, hard stops at 100%.
+   * Record agent-level token usage (increment tokens_used on agents table).
    */
-  async checkAgentBudget(agentId: string, companyId: string, estimatedTokens: number): Promise<TokenCheckResult> {
-    const { data } = await this.supabase
+  async recordAgentUsage(agentId: string, tokensUsed: number): Promise<void> {
+    const { data: agent } = await this.supabase
       .from('agents')
-      .select('monthly_token_budget, tokens_used_this_month, budget_warning_sent, name')
+      .select('tokens_used')
       .eq('id', agentId)
       .single();
 
-    if (!data) return { allowed: true, remaining: 999999 };
+    if (!agent) return;
 
-    const agent = data as { monthly_token_budget: number | null; tokens_used_this_month: number; budget_warning_sent: boolean; name: string };
+    const { error } = await this.supabase
+      .from('agents')
+      .update({ tokens_used: (agent.tokens_used ?? 0) + tokensUsed })
+      .eq('id', agentId);
 
-    // If no per-agent budget is set, skip agent-level check
-    if (!agent.monthly_token_budget) return { allowed: true, remaining: 999999 };
-
-    const remaining = agent.monthly_token_budget - agent.tokens_used_this_month;
-    const utilization = agent.tokens_used_this_month / agent.monthly_token_budget;
-
-    // 80% soft warning
-    if (utilization >= 0.8 && !agent.budget_warning_sent) {
-      await this.supabase.from('inbox_items').insert({
-        company_id: companyId,
-        item_type: 'BUDGET_ALERT',
-        title: `Agent "${agent.name}" at ${Math.round(utilization * 100)}% of monthly budget`,
-        description: `${agent.name} has used ${agent.tokens_used_this_month.toLocaleString()} of ${agent.monthly_token_budget.toLocaleString()} monthly tokens. Consider increasing the budget or reviewing task allocation.`,
-        payload: { agent_id: agentId, utilization: Math.round(utilization * 100) },
-      });
-      await this.supabase.from('agents').update({ budget_warning_sent: true }).eq('id', agentId);
-      log.warn('Agent budget 80% warning', { agentId, utilization: Math.round(utilization * 100) });
-    }
-
-    // 100% hard stop
-    if (remaining < estimatedTokens) {
-      log.warn('Agent budget exceeded', { agentId, remaining, requested: estimatedTokens });
-      return {
-        allowed: false,
-        remaining,
-        reason: `AGENT_BUDGET_EXCEEDED: ${agent.name} has exhausted their monthly token budget`
-      };
-    }
-
-    return { allowed: true, remaining };
-  }
-
-  /**
-   * Record agent-level token usage (increment tokens_used_this_month).
-   */
-  async recordAgentUsage(agentId: string, tokensUsed: number): Promise<void> {
-    const { error } = await this.supabase.rpc('increment_agent_tokens', {
-      p_agent_id: agentId,
-      p_tokens: tokensUsed,
-    });
-    // Silently fail — agent tracking is non-critical
     if (error) {
       log.warn('Failed to increment agent tokens', { agentId, error: error.message });
     }
   }
 
   /**
-   * Reset all agents' monthly token usage (called on 1st of every month).
+   * Pre-execution budget check with graduated alerts.
+   * Returns whether the agent should proceed, and the urgency level.
+   *
+   * Budget thresholds:
+   *   > 10% remaining  → proceed normally
+   *   5-10% remaining  → proceed, but pause non-critical agents
+   *   1-5% remaining   → proceed only for critical/high priority
+   *   0% remaining     → reject, pause all agents
    */
-  async resetAllAgentBudgets(): Promise<void> {
-    log.info('Resetting all agent monthly budgets');
-    const { error } = await this.supabase
-      .from('agents')
-      .update({ tokens_used_this_month: 0, budget_warning_sent: false })
-      .neq('id', '');  // Update all agents
+  async preExecutionCheck(
+    companyId: string,
+    issueId: string,
+    issuePriority: string,
+    estimatedTokens: number,
+  ): Promise<{ allowed: boolean; urgency: 'normal' | 'low_budget' | 'critical' | 'exhausted'; remaining: number }> {
+    const utilization = await this.getUtilization(companyId);
+    const remaining = await this.getRemaining(companyId);
 
-    if (error) {
-      log.error('Failed to reset agent budgets', { error: error.message });
+    // 0% — reject everything
+    if (remaining <= 0 || utilization >= 100) {
+      await this.handleBudgetExceeded(companyId, estimatedTokens);
+      return { allowed: false, urgency: 'exhausted', remaining: 0 };
     }
+
+    // 1-5% — only critical/high priority
+    if (utilization >= 95) {
+      const isCritical = issuePriority === 'critical' || issuePriority === 'high';
+      if (!isCritical) {
+        log.warn('Budget critically low — rejecting non-critical issue', {
+          companyId, issueId, utilization: Math.round(utilization),
+        });
+        return { allowed: false, urgency: 'critical', remaining };
+      }
+      // Alert once when crossing 95%
+      await this.createThresholdAlert(companyId, 5, remaining);
+      return { allowed: true, urgency: 'critical', remaining };
+    }
+
+    // 5-10% — alert, pause non-critical
+    if (utilization >= 90) {
+      await this.createThresholdAlert(companyId, 10, remaining);
+      return { allowed: true, urgency: 'low_budget', remaining };
+    }
+
+    // > 10% — proceed normally
+    return { allowed: true, urgency: 'normal', remaining };
+  }
+
+  /**
+   * Estimate tokens needed for an issue based on complexity.
+   */
+  estimateTokensForIssue(priority: string, hasSubIssues: boolean): number {
+    if (hasSubIssues) return 20000;   // Complex: CEO + team creation
+    if (priority === 'critical' || priority === 'high') return 8000; // Moderate
+    return 2000; // Simple
+  }
+
+  /**
+   * Create a threshold alert in the inbox (deduplicated — only once per threshold per day).
+   */
+  private async createThresholdAlert(
+    companyId: string,
+    thresholdPercent: number,
+    remaining: number,
+  ): Promise<void> {
+    const today = new Date().toISOString().split('T')[0];
+    const alertKey = `budget_threshold_${thresholdPercent}_${today}`;
+
+    // Check if we already sent this alert today
+    const { data: existing } = await this.supabase
+      .from('inbox_items')
+      .select('id')
+      .eq('company_id', companyId)
+      .eq('item_type', 'BUDGET_ALERT')
+      .gte('created_at', `${today}T00:00:00Z`)
+      .limit(1);
+
+    if (existing && existing.length > 0) return; // Already alerted today
+
+    await this.supabase.from('inbox_items').insert({
+      company_id: companyId,
+      item_type: 'BUDGET_ALERT',
+      title: `Token budget at ${100 - thresholdPercent}% — ${remaining.toLocaleString()} tokens remaining`,
+      body: thresholdPercent <= 5
+        ? 'Your AI team is almost out of tokens. Only critical tasks will continue. Add more credits to keep your team running.'
+        : 'Your AI team is running low on tokens. Consider adding more credits soon.',
+      status: 'pending',
+      priority: thresholdPercent <= 5 ? 'high' : 'medium',
+      metadata: {
+        threshold_percent: thresholdPercent,
+        remaining_tokens: remaining,
+        alert_key: alertKey,
+      },
+    });
+
+    log.info('Budget threshold alert created', {
+      companyId, thresholdPercent, remaining,
+    });
   }
 
   /**

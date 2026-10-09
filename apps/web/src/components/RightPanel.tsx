@@ -2,6 +2,8 @@
 
 import { useActiveCompany, useRealtimeTable } from '@/lib/hooks';
 import { timeAgo } from '@/lib/utils';
+import { CommandBar } from './CommandBar';
+import { ActivityFeed } from './ActivityFeed';
 
 interface InboxRow {
   id: string;
@@ -14,7 +16,7 @@ interface InboxRow {
 
 export function RightPanel() {
   const { companyId } = useActiveCompany();
-  const { data: inboxItems } = useRealtimeTable<InboxRow>('inbox_items', companyId);
+  const { data: inboxItems } = useRealtimeTable<InboxRow>('inbox_items', companyId, true, 'inbox');
 
   const pendingItems = inboxItems
     .filter((item) => item.status === 'pending')
@@ -22,27 +24,14 @@ export function RightPanel() {
 
   return (
     <aside className="w-right-panel flex-shrink-0 bg-apex-surface border-l border-apex-border flex flex-col h-full">
-      {/* APEX Advisor Briefing */}
-      <div className="p-4 border-b border-apex-border">
-        <h3 className="text-[10px] text-apex-muted font-mono uppercase tracking-widest mb-3">
-          APEX Advisor
-        </h3>
-        <div className="bg-apex-bg rounded p-3 text-sm text-apex-text font-sans leading-relaxed">
-          {companyId ? (
-            <p>
-              All systems nominal. Agents are operational and processing issues.
-              Review your inbox for any pending approvals.
-            </p>
-          ) : (
-            <p className="text-apex-muted">
-              Select a company to see your daily briefing.
-            </p>
-          )}
-        </div>
-      </div>
+      {/* Command Bar */}
+      <CommandBar />
+
+      {/* Activity Feed */}
+      <ActivityFeed />
 
       {/* Inbox Preview */}
-      <div className="flex-1 overflow-auto p-4">
+      <div className="flex-shrink-0 overflow-auto p-4 border-t border-apex-border">
         <h3 className="text-[10px] text-apex-muted font-mono uppercase tracking-widest mb-3">
           Inbox
           {pendingItems.length > 0 && (

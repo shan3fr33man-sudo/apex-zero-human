@@ -7,7 +7,7 @@
  * regardless of schedule or event pattern.
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseServiceRole } from '@/lib/supabase-server';
+import { getSupabaseServiceRole, getAuthenticatedUser, requireOwnership } from '@/lib/supabase-server';
 import { z } from 'zod';
 
 const TriggerSchema = z.object({
@@ -20,8 +20,12 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const user = await getAuthenticatedUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const routineId = params.id;
-  const supabase = getSupabaseServiceRole();
 
   let body: unknown;
   try {
@@ -43,6 +47,13 @@ export async function POST(
 
   const { company_id, event_payload } = parsed.data;
 
+  const authorized = await requireOwnership(user.id, company_id);
+  if (!authorized) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const supabase = getSupabaseServiceRole();
+
   // Fetch the routine
   const { data: routine, error: routineError } = await supabase
     .from('routines')
@@ -61,8 +72,8 @@ export async function POST(
   const template = routine.issue_template as {
     title: string;
     description: string;
-    success_condition: string;
-    priority: number;
+    success_condition?: string;
+    priority: 'critical' | 'high' | 'medium' | 'low';
     metadata?: Record<string, unknown>;
   } | null;
 
@@ -80,14 +91,14 @@ export async function POST(
       company_id,
       title: template.title,
       description: template.description,
-      success_condition: template.success_condition ?? null,
-      priority: template.priority ?? 50,
+      priority: template.priority ?? 'medium',
       metadata: {
         ...(template.metadata ?? {}),
         spawned_by_routine: routineId,
         routine_name: routine.name,
         manual_trigger: true,
         triggered_at: new Date().toISOString(),
+        ...(template.success_condition ? { success_condition: template.success_condition } : {}),
         ...(event_payload ? { event_payload } : {}),
       },
     })

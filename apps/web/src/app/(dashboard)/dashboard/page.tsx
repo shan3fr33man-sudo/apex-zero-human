@@ -10,10 +10,8 @@ interface AgentRow {
   role: string;
   name: string;
   status: 'idle' | 'working' | 'paused' | 'stalled' | 'terminated';
-  avg_quality_score: number | null;
-  total_tokens_used: number | null;
-  total_tasks_done: number | null;
-  current_issue_id: string | null;
+  tokens_used: number | null;
+  issues_completed: number | null;
   company_id: string;
 }
 
@@ -39,11 +37,11 @@ export default function CommandCenterPage() {
   );
 
   const totalTokens = agents.reduce(
-    (sum, a) => sum + (a.total_tokens_used ?? 0),
+    (sum, a) => sum + (a.tokens_used ?? 0),
     0
   );
   const activeIssues = issues
-    .filter((i) => i.status !== 'completed')
+    .filter((i) => i.status !== 'done')
     .slice(0, 10);
 
   if (!companyId) {

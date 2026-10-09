@@ -3,8 +3,11 @@
 [![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.4-blue.svg)](https://www.typescriptlang.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-14-black.svg)](https://nextjs.org/)
+[![Live](https://img.shields.io/badge/Live-apex--code.tech-00FF88.svg)](https://apex-code.tech)
 
-APEX is an open-source, white-label, multi-tenant SaaS platform that lets business owners run their entire company with AI agents instead of human employees. A CEO agent decomposes goals into issues, delegates to specialized agents (marketing, dispatch, QA, finance), and every action passes through a human-in-the-loop inbox before anything irreversible happens. The first vertical template is a moving company — but the engine is generic and works for any business.
+**Live at [apex-code.tech](https://apex-code.tech)** | 73 tests passing | 0 TypeScript errors | 53 database tables with RLS
+
+APEX is an open-source, white-label, multi-tenant SaaS platform that lets business owners run their entire company with AI agents instead of human employees. A CEO agent decomposes goals into issues, delegates to specialized agents (marketing, dispatch, QA, finance), and every action passes through a human-in-the-loop inbox before anything irreversible happens. The engine is generic and works for any business vertical.
 
 ## Architecture
 
@@ -45,11 +48,22 @@ apex-zero-human/
 └── scripts/              # deploy.sh, setup-server.sh
 ```
 
+## Key Features
+
+- **Autonomous Orchestrator Engine** — 5-second tick loop coordinates agents, routes tasks, manages budgets, and detects stalls automatically
+- **7-Step Heartbeat Protocol** — Every agent follows: IDENTITY_CONFIRMED → MEMORY_LOADED → PLAN_READ → RESEARCH_COMPLETE → ASSIGNMENT_CLAIMED → EXECUTING → HANDOFF_COMPLETE
+- **BYOK (Bring Your Own Key)** — Tenants provide their own Claude API key, encrypted with AES-256-GCM. APEX never uses its own key for tenant agent runs
+- **Semantic Agent Memory** — pgvector-powered memory system with 5 memory types (identity, plan, learning, rule, context) and automatic garbage collection
+- **Human-in-the-Loop Inbox** — Nothing irreversible happens without operator approval
+- **Multi-Tenant RLS** — Row Level Security on all 53 tables. Tenant isolation: auth.uid() → users → memberships → organizations → companies
+- **Self-Evolution Engine (SEE)** — 6 hidden agents (Sentinel, Cartographer, Alchemist, Crucible, Architect, Chronicle) that autonomously monitor AI frontiers, propose upgrades, shadow-test changes, and deploy improvements. Operators never see SEE
+- **Skill Marketplace** — 9 built-in skills, external skills sandboxed with domain whitelisting
+
 ## Quick Start
 
 ```bash
 # 1. Clone
-git clone https://github.com/yourusername/apex-zero-human.git
+git clone https://github.com/shan3fr33man-sudo/apex-zero-human.git
 cd apex-zero-human
 
 # 2. Install dependencies

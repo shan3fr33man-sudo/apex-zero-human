@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
 
 export default function OnboardingPage() {
   const [companyName, setCompanyName] = useState('');
@@ -16,54 +15,32 @@ export default function OnboardingPage() {
     setLoading(true);
     setError(null);
 
-    const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    try {
+      // Call server-side onboarding API
+      // Auth is handled server-side via JWT cookie — no authId in body
+      const res = await fetch('/api/auth/onboard', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          companyName,
+          goal,
+        }),
+      });
 
-    if (!user) {
-      setError('Not authenticated. Please log in.');
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || 'Failed to create company');
+        setLoading(false);
+        return;
+      }
+
+      router.push('/dashboard');
+      router.refresh();
+    } catch {
+      setError('Something went wrong. Please try again.');
       setLoading(false);
-      return;
     }
-
-    // Create company
-    const { data: company, error: companyError } = await supabase
-      .from('companies')
-      .insert({
-        name: companyName,
-        owner_id: user.id,
-        config: { goal, vertical: 'custom' },
-      })
-      .select()
-      .single();
-
-    if (companyError) {
-      setError(companyError.message);
-      setLoading(false);
-      return;
-    }
-
-    // Auto-spawn CEO agent for the new company
-    const { error: agentError } = await supabase.from('agents').insert({
-      company_id: company.id,
-      role: 'ceo',
-      name: 'CEO',
-      model_tier: 'STRATEGIC',
-      status: 'idle',
-      persona: `You are the CEO of ${companyName}. Your goal: ${goal}`,
-      config: {},
-      heartbeat_checklist: {},
-    });
-
-    if (agentError) {
-      setError(agentError.message);
-      setLoading(false);
-      return;
-    }
-
-    router.push('/dashboard');
-    router.refresh();
   }
 
   return (

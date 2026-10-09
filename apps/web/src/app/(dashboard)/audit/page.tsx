@@ -31,7 +31,7 @@ export default function AuditPage() {
     setLoading(true);
     const supabase = createClient();
     supabase
-      .from('audit_logs')
+      .from('audit_log')
       .select('*')
       .eq('company_id', companyId)
       .order('created_at', { ascending: false })

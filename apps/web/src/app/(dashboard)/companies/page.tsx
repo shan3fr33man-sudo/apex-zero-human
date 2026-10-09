@@ -2,8 +2,6 @@
 
 import { useState } from 'react';
 import { useCompanies, useActiveCompany } from '@/lib/hooks';
-import { createClient } from '@/lib/supabase/client';
-import { timeAgo, formatTokens } from '@/lib/utils';
 
 export default function CompaniesPage() {
   const { companies, loading } = useCompanies();
@@ -17,40 +15,33 @@ export default function CompaniesPage() {
     if (!newName.trim()) return;
     setCreating(true);
 
-    const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const { data: company } = await supabase
-      .from('companies')
-      .insert({
-        name: newName,
-        owner_id: user.id,
-        config: { goal: newGoal, vertical: 'custom' },
-      })
-      .select()
-      .single();
-
-    if (company) {
-      // Auto-spawn CEO
-      await supabase.from('agents').insert({
-        company_id: company.id,
-        role: 'ceo',
-        name: 'CEO',
-        model_tier: 'STRATEGIC',
-        status: 'idle',
-        persona: `You are the CEO of ${newName}. Goal: ${newGoal}`,
-        config: {},
-        heartbeat_checklist: {},
+    try {
+      const res = await fetch('/api/apex/companies', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newName,
+          description: newGoal || null,
+        }),
       });
 
-      setCompanyId(company.id);
-      setShowCreate(false);
-      setNewName('');
-      setNewGoal('');
-      window.location.reload();
+      if (!res.ok) {
+        console.error('[companies] Create error: API returned', res.status);
+        setCreating(false);
+        return;
+      }
+
+      const result = await res.json();
+      const company = result.company ?? result;
+      if (company && company.id) {
+        setCompanyId(company.id);
+        setShowCreate(false);
+        setNewName('');
+        setNewGoal('');
+        window.location.reload();
+      }
+    } catch (err) {
+      console.error('[companies] Create error:', err);
     }
     setCreating(false);
   }
@@ -151,8 +142,8 @@ export default function CompaniesPage() {
                   <h3 className="text-sm font-sans font-medium text-apex-text">
                     {company.name}
                   </h3>
-                  <p className="text-xs text-apex-muted font-mono mt-1">
-                    {(company.config as Record<string, string>)?.vertical ?? 'custom'} vertical
+                  <p className="text-xs text-apex-muted font-mono mt-1 truncate max-w-xs">
+                    {company.description || 'No description'}
                   </p>
                 </div>
                 <span className="text-[10px] font-mono text-apex-accent px-2 py-1 rounded bg-apex-accent/10">
